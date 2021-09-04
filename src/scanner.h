@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "token.h"
+
 typedef struct scanner_t scanner_t;
 
 scanner_t *scanner_new(FILE *file, const char *filename);
