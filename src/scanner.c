@@ -46,28 +46,85 @@ void scanner_delete(scanner_t *scanner) {
 	free(scanner);
 }
 
-#define take_while(s,var,cond) \
+static void take(scanner_t *s) {
+	if (s->text_len + 1 >= s->text_buf.len) {
+		size_t len = 2 * s->text_buf.len;
+		void *ptr = realloc(s->text_buf.ptr, len);
+		ASSERT(ptr);
+		if (ptr) {
+			s->text_buf.ptr = ptr;
+			s->text_buf.len = len;
+		}
+		else {
+			fputs("out of memory\n", stderr);
+			fflush(stderr);
+			abort();
+		}
+	}
+	s->text_buf.ptr[s->text_len++] = (char) read_char(s);
+}
+
+#define drop_while(s,var,cond) \
 	do { \
 		int var; \
-		while (cond) { \
-			if ((s)->text_len == (s)->text_buf.len) { \
-				void *ptr = realloc(s->text_buf.ptr, 2 * (s)->text_buf.len); \
-				ASSERT(ptr); \
-				if (ptr) (s)->text_buf.ptr = ptr; \
-			} \
+		while ((var = (s)->lookahead[0]) != -1 && (cond)) { \
+			read_char(s); \
 		} \
 	} while (0)
 
+#define take_while(s,var,cond) \
+	do { \
+		int var; \
+		while ((var = (s)->lookahead[0]) != -1 && (cond)) { \
+			take(s); \
+		} \
+	} while (0)
+
+int scan_inner(scanner_t *s) {
+	while (s->lookahead[0] != -1) {
+		if (isspace(s->lookahead[0])) {
+			drop_while(s, x, isspace(x));
+		}
+		else if (s->lookahead[0] == '/' && s->lookahead[1] == '/') {
+			drop_while(s, x, x != '\n');
+		}
+		else if (s->lookahead[0] == '/' && s->lookahead[1] == '*') {
+			drop_while(s, _, s->lookahead[0] != '*' || s->lookahead[1] != '/');
+			read_char(s);
+			read_char(s);
+		}
+		else if (isalpha(s->lookahead[0]) || s->lookahead[0] == '_') {
+			take_while(s, x, isalpha(s->lookahead[0]) || isdigit(s->lookahead[0]) || s->lookahead[0] == '_');
+			return 1;
+		}
+		else {
+			take(s);
+			return 1;
+		}
+	}
+	return s->text_len > 0;
+}
+
 int scanner_next(scanner_t *s, token_t *t) {
 	if (s->lookahead[0] == -1) {
-		return -1;
+		return 0;
 	}
 	else {
-		while (s->lookahead[0] != -1) {
-			if (isspace(s->lookahead[0])) {																																																																																																																																																																																																																																																																																																																																										
-				take_while(s, x, isspace(x));
-			}
+		if (t->text == 0) {
+			size_t len = 16;
+			s->text_buf.ptr = malloc(len);
+			s->text_buf.len = len;
 		}
-		return 0;
+		s->text_len = 0;
+		int res = scan_inner(s);
+		if (res) {
+			t->text = s->text_buf.ptr;
+			t->len = s->text_len;
+			t->type = 0;
+			s->text_buf.ptr = 0;
+			s->text_buf.len = 0;
+			s->text_len = 0;
+		}
+		return res;
 	}
 }

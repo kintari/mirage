@@ -1,1 +1,1 @@
-run = "clear; make && ./build/x86_64-linux-gnu/debug/mirage fib.txt"
+run = "clear; make -f linux/Makefile && linux/run.sh"
