@@ -16,3 +16,4 @@ function fib(x : u32) {
 var a : u32 = 9;
 print(fib(a));
 		
+foo(12345.6789);

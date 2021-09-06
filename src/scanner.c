@@ -1,5 +1,7 @@
 #include "scanner.h"
 #include "debug.h"
+#include "config.h"
+
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,6 +15,7 @@ struct scanner_t {
 		size_t len;
 	} text_buf;
 	size_t text_len;
+	int state_tbl[256][256];
 };
 
 static int read_char(scanner_t *s) {
@@ -29,15 +32,19 @@ static int read_char(scanner_t *s) {
 
 scanner_t *scanner_new(FILE *file, const char *filename) {
 	scanner_t *scanner = malloc(sizeof(scanner_t));
-	scanner->file = file;
-	scanner->filename = strdup(filename);
-	const size_t text_buf_len = 16;
-	scanner->text_buf.ptr = malloc(text_buf_len);
-	for (int i = 0; i < scanner->text_buf.len; i++)
-		scanner->text_buf.ptr[i] = 0;
-	scanner->text_buf.len = text_buf_len;
-	read_char(scanner);
-	read_char(scanner);
+	if (scanner) {
+		scanner->file = file;
+		scanner->filename = strdup(filename);
+		scanner->text_buf.ptr = NULL;
+		scanner->text_buf.len = 0;
+		scanner->text_len = 0;
+		for (int i = 0; i < 256; i++)
+			for (int j = 0; j < 256; j++)
+				scanner->state_tbl[i][j] = 0;
+		scanner->state_tbl['=']['='] = TT_ASSIGN_EQ;
+		read_char(scanner);
+		read_char(scanner);
+	}
 	return scanner;
 }
 
@@ -64,6 +71,10 @@ static void take(scanner_t *s) {
 	s->text_buf.ptr[s->text_len++] = (char) read_char(s);
 }
 
+static void drop(scanner_t *s) {
+	read_char(s);
+}
+
 #define drop_while(s,var,cond) \
 	do { \
 		int var; \
@@ -80,51 +91,89 @@ static void take(scanner_t *s) {
 		} \
 	} while (0)
 
-int scan_inner(scanner_t *s) {
+static void scan_word(scanner_t *s, token_t *t) {
+	take_while(s, x, isalpha(s->lookahead[0]) || isdigit(s->lookahead[0]) || s->lookahead[0] == '_');
+	static const struct {
+		const char *text;
+		int type;
+	} keywords[] = {
+		{ "else", TT_KW_ELSE },
+		{ "function", TT_KW_FUNCTION },
+		{ "if", TT_KW_IF },
+		{ "return", TT_KW_RETURN },
+		{ "string", TT_KW_STRING },
+		{ "u32", TT_KW_U32 },
+		{ "var", TT_KW_VAR },
+		{ "const", TT_KW_CONST }
+	};
+	t->type = TT_IDENTIFIER;
+	for (size_t i = 0; i < _countof(keywords); i++)
+		if (strcmp(s->text_buf.ptr, keywords[i].text) == 0)
+			t->type = (int) i;
+}
+
+bool scanner_next(scanner_t *s, token_t *t) {
+	if (s->text_buf.ptr == NULL) {
+		size_t buf_len = 16;
+		if ((s->text_buf.ptr = malloc(buf_len)) != NULL) {
+			memset(s->text_buf.ptr, 0, buf_len);
+			s->text_buf.len = buf_len;
+		}
+	}
 	while (s->lookahead[0] != -1) {
+		s->text_len = 0;
 		if (isspace(s->lookahead[0])) {
 			drop_while(s, x, isspace(x));
+			continue;
 		}
 		else if (s->lookahead[0] == '/' && s->lookahead[1] == '/') {
 			drop_while(s, x, x != '\n');
+			continue;
 		}
 		else if (s->lookahead[0] == '/' && s->lookahead[1] == '*') {
 			drop_while(s, _, s->lookahead[0] != '*' || s->lookahead[1] != '/');
-			read_char(s);
-			read_char(s);
+			drop(s);
+			drop(s);
+			continue;
+		}
+		else if (isdigit(s->lookahead[0])) {
+			take_while(s, x, isdigit(x));
+			if (s->lookahead[0] == '.' && isdigit(s->lookahead[1])) {
+				take(s);
+				take_while(s, x, isdigit(x));
+				t->type = TT_LIT_FLOAT;
+			}
+			else {
+				t->type = TT_LIT_INTEGER;
+			}
 		}
 		else if (isalpha(s->lookahead[0]) || s->lookahead[0] == '_') {
-			take_while(s, x, isalpha(s->lookahead[0]) || isdigit(s->lookahead[0]) || s->lookahead[0] == '_');
-			return 1;
+			scan_word(s, t);
+		}
+		else if (strchr("=!><|&~^+-/*", s->lookahead[0]) && s->lookahead[1] == '=') {
+			take(s);
+			take(s);
+		}
+		else if (strchr("&|", s->lookahead[0])  && s->lookahead[1] == s->lookahead[0]) {
+			take(s);
+			take(s);
+		}
+		else if (strchr("(){}[],.;:", s->lookahead[0])) {
+			take(s);
 		}
 		else {
-			take(s);
-			return 1;
+			fprintf(stderr, "unexpected character: '%c'\n", s->lookahead[0]);
+			return -1;
 		}
-	}
-	return s->text_len > 0;
-}
 
-int scanner_next(scanner_t *s, token_t *t) {
-	if (s->lookahead[0] == -1) {
+		t->text = s->text_buf.ptr;
+		t->len = s->text_len;
+
+		s->text_buf.ptr = 0;
+		s->text_buf.len = 0;
+		s->text_len = 0;
+
 		return 0;
 	}
-	else {
-		if (t->text == 0) {
-			size_t len = 16;
-			s->text_buf.ptr = malloc(len);
-			s->text_buf.len = len;
-		}
-		s->text_len = 0;
-		int res = scan_inner(s);
-		if (res) {
-			t->text = s->text_buf.ptr;
-			t->len = s->text_len;
-			t->type = 0;
-			s->text_buf.ptr = 0;
-			s->text_buf.len = 0;
-			s->text_len = 0;
-		}
-		return res;
-	}
+	return -1;
 }

@@ -9,14 +9,19 @@ int main(int argc, const char *argv[]) {
 		return -1;
 	}
 	const char *filename = argv[1];
-	FILE *file = fopen(filename, "rb");
+	FILE *file = NULL;
+#ifdef _MSC_VER
+	fopen_s(&file, filename, "rb");
+#else
+	file = fopen(filename, "rb");
+#endif
 	if (!file) {
 		perror(filename);
 		return -1;
 	}
 	scanner_t *scanner = scanner_new(file, filename);
 	token_t token = { 0 };
-	while (scanner_next(scanner, &token)) {
+	while (scanner_next(scanner, &token) == 0) {
 		printf("token: '%s' (%d)\n", token.text, token.type);
 		token_free(&token);
 	}
