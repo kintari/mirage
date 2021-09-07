@@ -1,9 +1,4 @@
 
-// this is a single line comment
-
-/* this is 
-   a multiline comment */
- 
 function fib(x : u32) {
 	if (x == 1 || x == 2) {
 		return 1;

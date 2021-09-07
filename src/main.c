@@ -1,5 +1,6 @@
 
 #include "scanner.h"
+#include "debug.h"
 
 #include <stdio.h>
 
@@ -21,8 +22,8 @@ int main(int argc, const char *argv[]) {
 	}
 	scanner_t *scanner = scanner_new(file, filename);
 	token_t token = { 0 };
-	while (scanner_next(scanner, &token) == 0) {
-		printf("token: '%s' (%d)\n", token.text, token.type);
+	while (scanner_next(scanner, &token)) {
+		TRACE("token: '%s' (%d)\n", token.text, token.type);
 		token_free(&token);
 	}
 	scanner_delete(scanner);

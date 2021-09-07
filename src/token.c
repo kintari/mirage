@@ -14,3 +14,15 @@ void token_free(token_t *token) {
 		token->col = 0;
 	}
 }
+
+#define X(T) case T: return #T;
+
+const char *token_type_str(int type) {
+	switch (type) {
+		TOKEN_TYPES
+	default:
+		return NULL;
+	}
+}
+
+#undef X
