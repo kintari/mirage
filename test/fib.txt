@@ -1,4 +1,7 @@
 
+
+||     |=
+
 function fib(x : u32) {
 	if (x == 1 || x == 2) {
 		return 1;

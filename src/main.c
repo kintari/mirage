@@ -27,5 +27,5 @@ int main(int argc, const char *argv[]) {
 		token_free(&token);
 	}
 	scanner_delete(scanner);
-	return 0;	
+	return 0;
 }

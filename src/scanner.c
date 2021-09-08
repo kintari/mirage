@@ -7,21 +7,69 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+typedef struct text_t {
+	char *buf;
+	size_t len; // length of the string, in characters, not including null terminator
+	size_t alloc; // number of bytes allocated in 'buf'
+} text_t;
+
+text_t *text_new() {
+	text_t *text = malloc(sizeof(text_t));
+	text->buf = NULL;
+	text->len = 0;
+	text->alloc = 0;
+	return text;
+}
+
+void text_delete(text_t *text) {
+	if (text) {
+		free(text->buf);
+		free(text);
+	}
+}
+
+text_t *text_append(text_t *text, int ch) {
+	ASSERT(text);
+	ASSERT(ch <= 256);
+	size_t alloc = text->alloc ? text->alloc + 1 : 2;
+	void *buf = realloc(text->buf, alloc);
+	ASSERT(buf);
+	if (buf) {
+		text->alloc = alloc;
+		text->buf = buf;
+		text->buf[text->len++] = (char) ch;
+		text->buf[text->len] = 0;
+	}
+	return text;
+}
+
+text_t *text_clear(text_t *text) {
+	if (text) *text = (text_t) { 0, 0, 0 };
+	return text;
+}
+
+char *text_move(text_t *text) {
+	ASSERT(text);
+	char *r = text->buf;
+	text_clear(text);
+	return r;
+}
+
 #define MAX_STATES 64
 
 struct scanner_t {
 	FILE *file;
 	char *filename;
 	int lookahead[2];
-	struct {
-		char *ptr;
-		size_t len;
-	} text_buf;
-	size_t text_len;
+	text_t *text;
 	uint8_t state_tbl[MAX_STATES][256];
 	size_t num_states;
-	int reject_state, accept_state, start_state;
+	int reject_state, ignore_state, accept_state, start_state;
 };
+
+bool eos(scanner_t *scanner) {
+	return scanner->lookahead[0] == -1;
+}
 
 static int read_char(scanner_t *s) {
 	int ret = s->lookahead[0];
@@ -52,9 +100,7 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 	if (scanner) {
 		scanner->file = file;
 		scanner->filename = strdup(filename);
-		scanner->text_buf.ptr = NULL;
-		scanner->text_buf.len = 0;
-		scanner->text_len = 0;
+		scanner->text = text_new();
 
 		static const char alpha_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 		static const char digit_chars[] = "0123456789";
@@ -63,10 +109,15 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 
 		scanner->reject_state = new_state(scanner);
 		scanner->accept_state = new_state(scanner);
-
 		scanner->start_state = new_state(scanner);
+		scanner->ignore_state = new_state(scanner);
+
+		for (size_t i = 0; i < 256; i++) // default transition out of start is to reject
+			scanner->state_tbl[scanner->start_state][i] = (uint8_t) scanner->reject_state;
 
 		int drop_space_state = new_state(scanner);
+		for (int i  = 0; i < 256; i++) // reading anything other than a space takes us back to start
+			scanner->state_tbl[drop_space_state][i] = (uint8_t) scanner->start_state;
 		transition(scanner, drop_space_state, space_chars, drop_space_state);
 
 		int drop_line_state = new_state(scanner);
@@ -86,33 +137,25 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 		transition(scanner, scan_frac_state, digit_chars, scan_frac_state);
 
 		const char *opers[] = {
-			"==",
-			"||"
+			"||", "|=", "&&", "=="
 		};
 
-		for (size_t i = 0; i < _countof(opers); i++) {
-			const char *pch = opers[i];
-			int cur_state = scanner->start_state;
-			while (*pch != 0) {
-				int next_state = scanner->state_tbl[cur_state][*pch];
-				if (next_state <= scanner->start_state) {
-					next_state = new_state(scanner);
-					scanner->state_tbl[cur_state][*pch] = (uint8_t) next_state;
-				}
-				cur_state = next_state;
-				pch++;
+		for (int i = 0; i < _countof(opers); i++) {
+			int state = scanner->start_state;
+			for (const char *pch = opers[i]; *pch != 0; pch++) {
+				uint8_t *tmp = &scanner->state_tbl[state][*pch];
+				int next_state = *tmp < scanner->start_state ? new_state(scanner) : *tmp;
+				scanner->state_tbl[state][*pch] = (uint8_t) next_state;
+				state = next_state;
 			}
 		}
 
-		int scan_misc_state = new_state(scanner);
-
-		// default transition out of start is to reject
-		for (size_t i = 0; i < 256; i++)
-			scanner->state_tbl[scanner->start_state][i] = (uint8_t) scanner->reject_state;
 		transition(scanner, scanner->start_state, space_chars, drop_space_state);
 		transition(scanner, scanner->start_state, alpha_chars, scan_word_state);
 		transition(scanner, scanner->start_state, "_", scan_word_state);
 		transition(scanner, scanner->start_state, digit_chars, scan_integer_state);
+
+		int scan_misc_state = new_state(scanner);
 		transition(scanner, scanner->start_state, misc_chars, scan_misc_state);
 
 		read_char(scanner);
@@ -122,69 +165,9 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 }
 
 void scanner_delete(scanner_t *scanner) {
+	text_delete(scanner->text);
 	free(scanner->filename);
 	free(scanner);
-}
-
-static int take(scanner_t *s) {
-	if (s->text_len + 1 >= s->text_buf.len) {
-		size_t len = 2 * s->text_buf.len;
-		void *ptr = realloc(s->text_buf.ptr, len);
-		ASSERT(ptr);
-		if (ptr) {
-			s->text_buf.ptr = ptr;
-			s->text_buf.len = len;
-		}
-		else {
-			fputs("out of memory\n", stderr);
-			fflush(stderr);
-			abort();
-		}
-	}
-	char ch = (char) read_char(s);
-	s->text_buf.ptr[s->text_len++] = ch;
-	return ch;
-}
-
-static void drop(scanner_t *s) {
-	read_char(s);
-}
-
-#define drop_while(s,var,cond) \
-	do { \
-		int var; \
-		while ((var = (s)->lookahead[0]) != -1 && (cond)) { \
-			read_char(s); \
-		} \
-	} while (0)
-
-#define take_while(s,var,cond) \
-	do { \
-		int var; \
-		while ((var = (s)->lookahead[0]) != -1 && (cond)) { \
-			take(s); \
-		} \
-	} while (0)
-
-static void scan_word(scanner_t *s, token_t *t) {
-	take_while(s, x, isalpha(s->lookahead[0]) || isdigit(s->lookahead[0]) || s->lookahead[0] == '_');
-	static const struct {
-		const char *text;
-		int type;
-	} keywords[] = {
-		{ "else", TT_KW_ELSE },
-		{ "function", TT_KW_FUNCTION },
-		{ "if", TT_KW_IF },
-		{ "return", TT_KW_RETURN },
-		{ "string", TT_KW_STRING },
-		{ "u32", TT_KW_U32 },
-		{ "var", TT_KW_VAR },
-		{ "const", TT_KW_CONST }
-	};
-	t->type = TT_IDENTIFIER;
-	for (size_t i = 0; i < _countof(keywords); i++)
-		if (strcmp(s->text_buf.ptr, keywords[i].text) == 0)
-			t->type = (int) i;
 }
 
 static bool peek(scanner_t *scanner, int *pch) {
@@ -192,94 +175,28 @@ static bool peek(scanner_t *scanner, int *pch) {
 	return ch != -1 ? (*pch = ch), true : false;
 }
 
-bool scanner_fsm(scanner_t *s) {
+uint8_t scanner_fsm(scanner_t *s) {
 	int state = s->start_state;
 	int ch;
-	while (peek(s, &ch) && (state = s->state_tbl[state][ch]) > s->start_state) {
+	while (peek(s, &ch) && (state = s->state_tbl[state][ch]) >= s->start_state) {
+		ASSERT(state <= s->num_states);
+		read_char(s);
+		text_append(s->text, ch);
 		TRACE("fsm: ch='%c', state=%d\n", ch, state);
-		take(s);
 	}
-	if (state == s->reject_state) {
-		int i = 0;
-		i = i + 1;
-	}
-	return state == s->accept_state;
+	return (uint8_t) state;
 }
 
 bool scanner_next(scanner_t *s, token_t *t) {
-	if (s->text_buf.ptr == NULL) {
-		size_t buf_len = 16;
-		if ((s->text_buf.ptr = malloc(buf_len)) != NULL) {
-			memset(s->text_buf.ptr, 0, buf_len);
-			s->text_buf.len = buf_len;
-		}
-	}
-	s->text_len = 0;
-	bool result = scanner_fsm(s);
 
-	if (result) {
-		t->text = s->text_buf.ptr;
-		t->len = s->text_len;
-	}
-	else {
-		free(s->text_buf.ptr);
+	uint8_t end_state;
+	do {
+		end_state = scanner_fsm(s);
+	} while (!eos(s) && end_state == s->ignore_state);
+
+	if (end_state == s->accept_state) {
+		t->text = text_move(s->text);
 	}
 
-	s->text_buf.ptr = 0;
-	s->text_buf.len = 0;
-	s->text_len = 0;
-
-	return result;
-
-#if 0
-		if (isspace(s->lookahead[0])) {
-			drop_while(s, x, isspace(x));
-			continue;
-		}
-		else if (s->lookahead[0] == '/' && s->lookahead[1] == '/') {
-			drop_while(s, x, x != '\n');
-			continue;
-		}
-		else if (s->lookahead[0] == '/' && s->lookahead[1] == '*') {
-			drop_while(s, _, s->lookahead[0] != '*' || s->lookahead[1] != '/');
-			drop(s);
-			drop(s);
-			continue;
-		}
-		else if (isdigit(s->lookahead[0])) {
-			take_while(s, x, isdigit(x));
-			if (s->lookahead[0] == '.' && isdigit(s->lookahead[1])) {
-				take(s);
-				take_while(s, x, isdigit(x));
-				t->type = TT_LIT_FLOAT;
-			}
-			else {
-				t->type = TT_LIT_INTEGER;
-			}
-		}
-		else if (isalpha(s->lookahead[0]) || s->lookahead[0] == '_') {
-			scan_word(s, t);
-		}
-		else (s->state_tbl[s->lookahead[0]][s->lookahead[1]] != 0) {
-
-		}
-		else if {
-			s->state_tbl[s->lookahead[0]]
-		}
-		else if (strchr("=!><|&~^+-/*", s->lookahead[0]) && s->lookahead[1] == '=') {
-			take(s);
-			take(s);
-		}
-		else if (strchr("&|", s->lookahead[0])  && s->lookahead[1] == s->lookahead[0]) {
-			take(s);
-			take(s);
-		}
-		else if (strchr("(){}[],.;:", s->lookahead[0])) {
-			take(s);
-		}
-		else {
-			fprintf(stderr, "unexpected character: '%c'\n", s->lookahead[0]);
-			return -1;
-		}
-#endif
+	return end_state == s->accept_state;
 }
