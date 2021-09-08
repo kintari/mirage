@@ -1,8 +1,10 @@
 
 #include "scanner.h"
 #include "debug.h"
+#include "text.h"
 
 #include <stdio.h>
+#include <malloc.h>
 
 int main(int argc, const char *argv[]) {
   if (argc != 2) {
@@ -23,7 +25,11 @@ int main(int argc, const char *argv[]) {
 	scanner_t *scanner = scanner_new(file, filename);
 	token_t token = { 0 };
 	while (scanner_next(scanner, &token)) {
-		TRACE("token: '%s' (%d)\n", token.text, token.type);
+		text_t *text = text_escape(token.text, token.len);
+		char *str = text_move(text);
+		TRACE("token: '%s' (%d)\n", str, token.type);
+		free(str);
+		text_delete(text);
 		token_free(&token);
 	}
 	scanner_delete(scanner);
