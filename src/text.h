@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 typedef struct text_t text_t;
 
 text_t *text_new();

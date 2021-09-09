@@ -11,6 +11,14 @@
 
 #define MAX_STATES 64
 
+#ifndef _countof
+#define _countof(x) (sizeof(x)/sizeof((x)[0]))
+#endif
+/*
+#ifndef strdup
+#define strdup _strdup
+#endif
+*/
 struct scanner_t {
 	FILE *file;
 	char *filename;
@@ -49,7 +57,7 @@ static int new_state(scanner_t *scanner) {
 }
 
 static void transition(scanner_t *scanner, int from_state, const char *values, int to_state) {
-	for (const char *pch = values; *pch != 0; pch++)
+	for (const uint8_t *pch = (const uint8_t *) values; *pch != 0; pch++)
 		scanner->state_tbl[from_state][*pch] = (uint8_t) to_state;
 }
 
@@ -100,7 +108,7 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 
 		for (int i = 0; i < _countof(opers); i++) {
 			int state = scanner->start_state;
-			for (const char *pch = opers[i]; *pch != 0; pch++) {
+			for (const uint8_t *pch = (const uint8_t *) opers[i]; *pch != 0; pch++) {
 				uint8_t *tmp = &scanner->state_tbl[state][*pch];
 				int next_state = *tmp < scanner->start_state ? new_state(scanner) : *tmp;
 				scanner->state_tbl[state][*pch] = (uint8_t) next_state;
