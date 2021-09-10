@@ -26,7 +26,7 @@ int main(int argc, const char *argv[]) {
 	token_t token = { 0 };
 	while (scanner_next(scanner, &token)) {
 		text_t *text = text_escape(token.text);
-		TRACE("token: '%s' (%d) at %s:(%d,%d)\n", text_buf(text), token.type, filename, token.line, token.col);
+		TRACE("token: '%s', %s\n", text_buf(text), token_typeinfo[token.type].type_str);
 		text_delete(text);
 		token_free(&token);
 	}

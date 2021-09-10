@@ -10,14 +10,10 @@ void token_free(token_t *token) {
 	}
 }
 
-#define X(T) case T: return #T;
+#define X(t) { .type=t, .type_str=#t },
 
-const char *token_type_str(int type) {
-	switch (type) {
-		TOKEN_TYPES
-	default:
-		return NULL;
-	}
-}
+const token_typeinfo_t token_typeinfo[TT_COUNT+1] = {
+	TOKEN_TYPES
+};
 
 #undef X

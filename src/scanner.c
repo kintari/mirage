@@ -81,68 +81,145 @@ static bool peek(scanner_t *scanner, int *pch) {
 }
 
 static bool take(scanner_t *scanner) {
-	if (!eos(scanner)) {
+	bool b = !eos(scanner);
+	if (b) {
 		int ch = read_char(scanner);
 		text_t *text = text_append(scanner->text, (char) ch);
 		text_delete(scanner->text);
 		scanner->text = text;
-		return true;
 	}
-	else {
-		return false;
-	}
+	return b;
 }
 
+void scan_comment(scanner_t *scanner) {
+	read_char(scanner);
+	read_char(scanner);
+	int ch;
+	while (peek(scanner, &ch) && ch != '\n')
+		read_char(scanner);
+}
+
+void scan_multiline_comment(scanner_t *scanner) {
+	read_char(scanner);
+	read_char(scanner);
+	while (!eos(scanner) && !(scanner->lookahead[0] == '*' && scanner->lookahead[1] == '/')) {
+		read_char(scanner);
+	}
+	read_char(scanner);
+	read_char(scanner);
+}
+
+void scan_digits(scanner_t *scanner) {
+	while (!eos(scanner) && isdigit(scanner->lookahead[0]))
+		take(scanner);
+}
+
+bool scan_numeric_literal(scanner_t *scanner, token_t *token) {
+	scan_digits(scanner);
+	if (scanner->lookahead[0] == '.' && isdigit(scanner->lookahead[1])) {
+		take(scanner);
+		scan_digits(scanner);
+		token->type = TT_FLOAT_LITERAL;
+	}
+	else {
+		token->type = TT_INTEGER_LITERAL;
+	}
+	return true;
+}
+
+bool scan_text(scanner_t *scanner, token_t *token) {
+	int ch;
+	while (peek(scanner, &ch) && (isalpha(ch) || isdigit(ch) || ch == '_'))
+		take(scanner);
+	const char *text = text_buf(scanner->text);
+	const struct {
+		const char *type_str;
+		int type;
+	} keywords[] = {
+		{ "u32", TT_KW_U32 },
+		{ "string", TT_KW_STRING },
+		{ "function", TT_KW_FUNCTION },
+		{ "if", TT_KW_IF },
+		{ "else", TT_KW_ELSE },
+		{ "var", TT_KW_VAR },
+		{ "const", TT_KW_CONST },
+		{ "return", TT_KW_RETURN },
+	};
+	for (int i = 0; i < _countof(keywords); i++) {
+		if (strcmp(text, keywords[i].type_str) == 0) {
+			token->type = keywords[i].type;
+			return true;
+		}
+	}
+	token->type = TT_IDENTIFIER;
+	return true;
+}
+
+bool scan_misc(scanner_t *scanner, token_t *token) {
+	struct {
+		const char text[3];
+		int type;
+	} misc_tokens[] = {
+		{ "==", TT_CMP_EQ },
+		{ "||", TT_LOG_OR },
+		{ "|=", TT_BIT_OR_EQUALS },
+		{ "|", TT_BIT_OR },
+		{ "|", TT_BIT_AND },
+		{ "(", TT_RPAREN },
+		{ ")", TT_LPAREN },
+		{ "{", TT_LBRACE },
+		{ "}", TT_RBRACE },
+		{ ":", TT_COLON },
+		{ ";", TT_SEMICOLON },
+		{ ",", TT_COMMA },
+		{ "-", TT_MINUS },
+		{ "+", TT_PLUS },
+		{ "=", TT_ASSIGN_EQ },
+	};
+	for (size_t i = 0; i < _countof(misc_tokens); i++) {
+		const char *text = misc_tokens[i].text;
+		if (text[1]) {
+			// two character token
+			if (text[0] == scanner->lookahead[0] && text[1] == scanner->lookahead[1]) {
+				token->type = misc_tokens[i].type;
+				take(scanner);
+				take(scanner);
+				return true;
+			}
+		}
+		else {
+			// one character token
+			if (text[0] == scanner->lookahead[0]) {
+				token->type = misc_tokens[i].type;
+				take(scanner);
+				return true;
+			}
+		}
+	}
+	TRACE("unrecognized token %c, %c\n", scanner->lookahead[0], scanner->lookahead[1]);
+	abort();
+}
 
 static bool scan_inner(scanner_t *scanner, token_t *token) {
 	while (!eos(scanner)) {
 		if (isspace(scanner->lookahead[0])) {
-			int ch;
-			while (peek(scanner, &ch) && isspace(ch))
+			while (!eos(scanner) && isspace(scanner->lookahead[0]))
 				read_char(scanner);
 		}
 		else if (scanner->lookahead[0] == '/' && scanner->lookahead[1] == '/') {
-			read_char(scanner);
-			read_char(scanner);
-			int ch;
-			while (peek(scanner, &ch) && ch != '\n')
-				read_char(scanner);
+			scan_comment(scanner);
 		}
 		else if (scanner->lookahead[0] == '/' && scanner->lookahead[1] == '*') {
-			read_char(scanner);
-			read_char(scanner);
-			while (!eos(scanner) && !(scanner->lookahead[0] == '*' && scanner->lookahead[1] == '/')) {
-				read_char(scanner);
-			}
-			read_char(scanner);
-			read_char(scanner);
+			scan_multiline_comment(scanner);
 		}
 		else if (isdigit(scanner->lookahead[0])) {
-			int ch;
-			while (peek(scanner, &ch) && isdigit(ch))
-				take(scanner);
-			if (scanner->lookahead[0] == '.' && isdigit(scanner->lookahead[1])) {
-				take(scanner);
-				while (peek(scanner, &ch) && isdigit(ch))
-					take(scanner);
-				token->type = TT_FLOAT_LITERAL;
-			}
-			else {
-				token->type = TT_INTEGER_LITERAL;
-			}
-			return true;
+			return scan_numeric_literal(scanner, token);
 		}
 		else if (isalpha(scanner->lookahead[0]) || scanner->lookahead[0] == '_') {
-			int ch;
-			while (peek(scanner, &ch) && (isalpha(ch) || isdigit(ch) || ch == '_'))
-				take(scanner);
-			token->type = TT_IDENTIFIER;
-			return true;
+			return scan_text(scanner, token);
 		}
 		else {
-			take(scanner);
-			token->type = 0;
-			return true;
+			return scan_misc(scanner, token);
 		}
 	}
 	return false;

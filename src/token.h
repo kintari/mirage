@@ -42,7 +42,9 @@
 	X(TT_LOG_AND) \
 	X(TT_LOG_NOT) \
 	X(TT_BIT_OR) \
-	X(TT_BIT_AND)
+	X(TT_BIT_OR_EQUALS) \
+	X(TT_BIT_AND) \
+	X(TT_COUNT)
 
 #define X(t) t,
 
@@ -51,7 +53,6 @@ enum {
 };
 
 #undef X
-
 
 typedef struct token_t {
 	text_t *text;
@@ -62,4 +63,10 @@ typedef struct token_t {
 
 void token_free(token_t *);
 
-const char *token_type_str(int type);
+
+typedef struct token_typeinfo_t {
+	int type;
+	const char *type_str;
+} token_typeinfo_t;
+
+extern const token_typeinfo_t token_typeinfo[TT_COUNT+1];
