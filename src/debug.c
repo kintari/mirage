@@ -12,7 +12,9 @@ extern void OutputDebugStringA(const char *);
 
 char *vasprintf(const char *format, va_list args) {
 	char *buf = NULL;
-	size_t count = _vscprintf(format, args);
+	va_list args_copy;
+	va_copy(args_copy, args);
+	size_t count = vsnprintf(format, args);
 	if (count > 0) {
 		size_t buf_len = count + 1;
 		if ((buf = malloc(buf_len)) != NULL) {
@@ -23,22 +25,24 @@ char *vasprintf(const char *format, va_list args) {
 	return buf;
 }
 
-#endif
-
 static void output(const char *buf) {
 	fputs(buf, stdout);
-#ifdef _MSC_VER
 	OutputDebugStringA(buf);
-#endif
 }
+
+#endif
 
 void trace(const char *format, ...) {
 	va_list args;
 	va_start(args, format);
+#ifdef _MSC_VER
 	char *buf = NULL;
 	if ((buf = vasprintf(format, args)) != NULL) {
 		output(buf);
 		free(buf);
 	}
+#else
+	vfprintf(stdout, format, args);
+#endif
 	va_end(args);
 }

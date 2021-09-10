@@ -1,5 +1,5 @@
 #pragma once
 
-#ifndef _strdup
+#ifdef _MSC_VER
 #define strdup _strdup
 #endif
