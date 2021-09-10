@@ -25,10 +25,8 @@ int main(int argc, const char *argv[]) {
 	scanner_t *scanner = scanner_new(file, filename);
 	token_t token = { 0 };
 	while (scanner_next(scanner, &token)) {
-		text_t *text = text_escape(token.text, token.len);
-		char *str = text_move(text);
-		TRACE("token: '%s' (%d)\n", str, token.type);
-		free(str);
+		text_t *text = text_escape(token.text);
+		TRACE("token: '%s' (%d) at %s:(%d,%d)\n", text_buf(text), token.type, filename, token.line, token.col);
 		text_delete(text);
 		token_free(&token);
 	}

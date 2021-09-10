@@ -6,12 +6,16 @@ text_t *text_new();
 
 void text_delete(text_t *text);
 
-text_t *text_append(text_t *text, int ch);
+size_t text_length(const text_t *);
 
-text_t *text_clear(text_t *text);
+const char *text_buf(const text_t *);
 
-char *text_move(text_t *text);
+text_t *text_append(const text_t *text, int ch);
+
+text_t *text_concat(const text_t *, const text_t *);
+
+text_t *text_concat_cstr(const text_t *, const char *, size_t);
 
 char *escape_char(char buf [3], int ch);
 
-text_t *text_escape(const char *, size_t num_chars);
+text_t *text_escape(const text_t *);

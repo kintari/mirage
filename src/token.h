@@ -1,5 +1,7 @@
 #pragma once
 
+#include "text.h"
+
 #include <stddef.h>
 
 #define TOKEN_TYPES \
@@ -52,7 +54,7 @@ enum {
 
 
 typedef struct token_t {
-	char *text;
+	text_t *text;
 	size_t len;
 	int type;
 	int line, col;

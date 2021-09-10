@@ -7,14 +7,14 @@
 struct text_t {
 	char *buf;
 	size_t len; // length of the string, in characters, not including null terminator
-	size_t alloc; // number of bytes allocated in 'buf'
 };
 
-static const text_t TEXT_EMPTY = { .buf=NULL, .len=0, .alloc=0 };
+static const text_t TEXT_EMPTY = { .buf=NULL, .len=0 };
 
 text_t *text_new() {
 	text_t *text = malloc(sizeof(text_t));
-	*text = TEXT_EMPTY;
+	text->buf = malloc(0);
+	text->len = 0;
 	return text;
 }
 
@@ -25,33 +25,60 @@ void text_delete(text_t *text) {
 	}
 }
 
-text_t *text_append(text_t *text, int ch) {
+size_t text_length(const text_t *t) {
+	ASSERT(t);
+	return t->len;
+}
+
+const char *text_buf(const text_t *text) {
+	return text ? text->buf : NULL;
+}
+
+text_t *text_append(const text_t *text, int ch) {
 	ASSERT(text);
 	ASSERT(ch <= 256); // FIXME
-	size_t alloc = text->alloc ? text->alloc + 1 : 2;
-	char *buf = realloc(text->buf, alloc);
+	char *buf = malloc(text->len + 2);
 	ASSERT(buf);
 	if (buf) {
+		for (int i = 0; i < text->len; i++)
+			buf[i] = text->buf[i];
 		buf[text->len] = (char) ch;
-		buf[text->len+1] = 0;
-		*text = (text_t) { .buf=buf, .len=text->len+1, .alloc=alloc };
+		buf[text->len + 1] = 0;
+		text_t *ret = malloc(sizeof(text_t));
+		ASSERT(ret);
+		if (ret) {
+			ret->buf = buf;
+			ret->len = text->len + 1;
+			return ret;
+		}
 	}
-	return text;
+	return NULL;
 }
 
-text_t *text_clear(text_t *text) {
-	if (text) {
-		free(text->buf);
-		*text = TEXT_EMPTY;
+text_t *text_concat_cstr(const text_t *text, const char *pstr, size_t pstr_len) {
+	size_t len = text->len + pstr_len;
+	char *buf = malloc(len + 1);
+	ASSERT(buf);
+	if (buf) {
+		char *pch = buf;
+		for (size_t i = 0; i < text->len; i++)
+			*(pch++) = text->buf[i];
+		for (size_t j = 0; j < pstr_len; j++)
+			*(pch++) = pstr[j];
+		*pch = 0;
+		text_t *ret = malloc(sizeof(text_t));
+		if (ret) {
+			ret->buf = buf;
+			ret->len = len;
+			return ret;
+		}
+		free(buf);
 	}
-	return text;
+	return NULL;
 }
 
-char *text_move(text_t *text) {
-	ASSERT(text);
-	char *r = text->buf;
-	*text = TEXT_EMPTY;
-	return r;
+text_t *text_concat(const text_t *t0, const text_t *t1) {
+	return text_concat_cstr(t0, t1->buf, t1->len);
 }
 
 char *escape_char(char buf[3], int ch) {
@@ -85,24 +112,20 @@ char *escape_char(char buf[3], int ch) {
 	return buf;
 }
 
-text_t *text_escape(const char *str, size_t num_chars) {
-	text_t *text = NULL;
-	if (str) {
-		text = text_new();
-		if (num_chars == 0) num_chars = strlen(str);
-		for (size_t i = 0; i < num_chars; i++) {
+text_t *text_escape(const text_t *text) {
+	text_t *ret = NULL;
+	if (text) {
+		ret = text_new();
+		for (size_t i = 0; i < text->len; i++) {
 			char buf[3] = { 0, 0, 0 };
-			escape_char(buf, str[i]);
-			if (buf[0]) {
-				text_append(text, buf[0]);
-				if (buf[1]) {
-					text_append(text, buf[1]);
-					if (buf[2]) {
-						text_append(text, buf[2]);
-					}
-				}
-			}
+			escape_char(buf, text->buf[i]);
+			size_t len = 0;
+			if (buf[0]) len++;
+			if (buf[1]) len++;
+			text_t *tmp = ret;
+			ret = text_concat_cstr(ret, buf, len);
+			text_delete(tmp);
 		}
 	}
-	return text;
+	return ret;
 }

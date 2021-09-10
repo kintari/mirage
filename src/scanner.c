@@ -14,6 +14,7 @@
 struct scanner_t {
 	FILE *file;
 	char *filename;
+	int line, col;
 	int lookahead[2];
 	text_t *text;
 	uint8_t state_tbl[MAX_STATES][256];
@@ -33,6 +34,13 @@ static int read_char(scanner_t *s) {
 			ch = -1;
 		s->lookahead[0] = s->lookahead[1];
 		s->lookahead[1] = ch;
+		if (ret == '\n') {
+			s->line++;
+			s->col = 1;
+		}
+		else {
+			s->col++;
+		}
 	}
 	if (0) {
 		char buf[3];
@@ -58,6 +66,8 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 	if (scanner) {
 		scanner->file = file;
 		scanner->filename = strdup(filename);
+		scanner->line = 1;
+		scanner->col = 1;
 		scanner->text = text_new();
 
 		static const char alpha_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -116,9 +126,33 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 		int scan_misc_state = new_state(scanner);
 		transition(scanner, scanner->start_state, misc_chars, scan_misc_state);
 
+#if 0
+		FILE *f = NULL;
+		fopen_s(&f, "fsm_tables.h", "wb");
+
+		if (f) {
+			fprintf(f, "const uint8_t fsm_table[%d][256] = {\n", (int) scanner->num_states);
+			for (int state = 0; state < scanner->num_states; state++) {
+				fputs("\t{\n", f);
+				for (int row = 0; row < 16; row++) {
+					fputs("\t\t", f);
+					for (int col = 0; col < 16; col++) {
+						uint8_t value = scanner->state_tbl[state][16 * row + col];
+						fprintf(f, "%d, ", value);
+					}
+					fputc('\n', f);
+				}
+				fputs("\t},\n", f);
+			}
+			fputs("};\n", f);
+			fclose(f);
+		}
+#endif
+
 		read_char(scanner);
 		read_char(scanner);
 	}
+
 	return scanner;
 }
 
@@ -144,7 +178,9 @@ uint8_t scanner_fsm(scanner_t *s) {
 		ASSERT(state != s->start_state);
 		ASSERT(state <= s->num_states);
 		read_char(s);
-		text_append(s->text, ch);
+		text_t *tmp = text_append(s->text, ch);
+		text_delete(s->text);
+		s->text = tmp;
 		//TRACE("fsm: ch='%c', state=%d\n", ch, state);
 	}
 	if (eos(s)) {
@@ -155,16 +191,22 @@ uint8_t scanner_fsm(scanner_t *s) {
 }
 
 bool scanner_next(scanner_t *s, token_t *t) {
-
 	uint8_t end_state;
 	do {
-		text_clear(s->text);
+		text_delete(s->text);
+		s->text = text_new();
+		t->line = s->line;
+		t->col = s->col;
 		end_state = scanner_fsm(s);
 	} while (!eos(s) && end_state == s->ignore_state);
-
 	if (end_state == s->accept_state) {
-		t->text = text_move(s->text);
+		t->text = s->text;
+		s->text = NULL;
 	}
-
+	else {
+		t->text = NULL;
+		text_delete(s->text);
+		s->text = NULL;
+	}
 	return end_state == s->accept_state;
 }
