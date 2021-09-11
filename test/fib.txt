@@ -1,8 +1,11 @@
 
-
-||     |=
+/*
+ * this is a
+ * multiline comment
+ */
 
 function fib(x : u32) {
+	// this is a single line comment
 	if (x == 1 || x == 2) {
 		return 1;
 	}

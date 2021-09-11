@@ -48,24 +48,23 @@
 
 #define X(t) t,
 
-enum {
+typedef enum {
 	TOKEN_TYPES
-};
+} token_type_t;
 
 #undef X
 
 typedef struct token_t {
 	text_t *text;
 	size_t len;
-	int type;
+	token_type_t type;
 	int line, col;
 } token_t;
 
 void token_free(token_t *);
 
-
 typedef struct token_typeinfo_t {
-	int type;
+	token_type_t type;
 	const char *type_str;
 } token_typeinfo_t;
 

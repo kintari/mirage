@@ -73,7 +73,6 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 		read_char(scanner);
 		read_char(scanner);
 	}
-
 	return scanner;
 }
 
@@ -126,20 +125,19 @@ void scan_digits(scanner_t *scanner) {
 	take_while(scanner, isdigit(scanner->lookahead[0]));
 }
 
-bool scan_numeric_literal(scanner_t *scanner, token_t *token) {
+token_type_t scan_numeric_literal(scanner_t *scanner) {
 	scan_digits(scanner);
 	if (scanner->lookahead[0] == '.' && isdigit(scanner->lookahead[1])) {
 		take(scanner);
 		scan_digits(scanner);
-		token->type = TT_FLOAT_LITERAL;
+		return TT_FLOAT_LITERAL;
 	}
 	else {
-		token->type = TT_INTEGER_LITERAL;
+		return TT_INTEGER_LITERAL;
 	}
-	return true;
 }
 
-int get_keyword_type(const char *text) {
+token_type_t get_keyword_type(const char *text) {
 	static const struct {
 		const char *type_str;
 		int type;
@@ -156,25 +154,25 @@ int get_keyword_type(const char *text) {
 	for (int i = 0; i < countof(keywords); i++)
 		if (strcmp(text, keywords[i].type_str) == 0)
 			return keywords[i].type;
-	return -1;
+	return TT_NIL;
 }
 
-bool scan_text(scanner_t *scanner, token_t *token) {
+token_type_t scan_text(scanner_t *scanner) {
 	int *pch = &scanner->lookahead[0];
 	take_while(scanner, isalpha(*pch) || isdigit(*pch) || *pch == '_');
-	int keyword_type = get_keyword_type(text_buf(scanner->text));
-	token->type = keyword_type == -1 ? TT_IDENTIFIER : keyword_type;
-	return true;
+	token_type_t keyword_type = get_keyword_type(text_buf(scanner->text));
+	return keyword_type == TT_NIL ? TT_IDENTIFIER : keyword_type;
 }
 
-bool scan_misc(scanner_t *scanner, token_t *token) {
+token_type_t scan_misc(scanner_t *scanner) {
 	static const struct {
 		const char text[3];
-		int type;
+		token_type_t type;
 	} misc_tokens[] = {
 		{ "==", TT_CMP_EQ },
 		{ "||", TT_LOG_OR },
 		{ "|=", TT_BIT_OR_EQUALS },
+		{ "->", TT_ARROW },
 		{ "|", TT_BIT_OR },
 		{ "|", TT_BIT_AND },
 		{ "(", TT_RPAREN },
@@ -187,32 +185,30 @@ bool scan_misc(scanner_t *scanner, token_t *token) {
 		{ "-", TT_MINUS },
 		{ "+", TT_PLUS },
 		{ "=", TT_ASSIGN_EQ },
+		{ ".", TT_DOT },
 	};
-	for (size_t i = 0; i < _countof(misc_tokens); i++) {
+	for (size_t i = 0; i < countof(misc_tokens); i++) {
 		const char *text = misc_tokens[i].text;
 		if (text[1]) {
 			// two character token
 			if (text[0] == scanner->lookahead[0] && text[1] == scanner->lookahead[1]) {
-				token->type = misc_tokens[i].type;
 				take(scanner);
 				take(scanner);
-				return true;
+				return misc_tokens[i].type;
 			}
 		}
 		else {
 			// one character token
 			if (text[0] == scanner->lookahead[0]) {
-				token->type = misc_tokens[i].type;
 				take(scanner);
-				return true;
+				return misc_tokens[i].type;
 			}
 		}
 	}
-	TRACE("unrecognized token %c, %c\n", scanner->lookahead[0], scanner->lookahead[1]);
-	abort();
+	return TT_NIL;
 }
 
-static bool scan_inner(scanner_t *scanner, token_t *token) {
+static token_type_t scan_inner(scanner_t *scanner) {
 	while (!eos(scanner)) {
 		if (isspace(scanner->lookahead[0])) {
 			drop_while(scanner, isspace(scanner->lookahead[0]));
@@ -224,16 +220,16 @@ static bool scan_inner(scanner_t *scanner, token_t *token) {
 			scan_multiline_comment(scanner);
 		}
 		else if (isdigit(scanner->lookahead[0])) {
-			return scan_numeric_literal(scanner, token);
+			return scan_numeric_literal(scanner);
 		}
 		else if (isalpha(scanner->lookahead[0]) || scanner->lookahead[0] == '_') {
-			return scan_text(scanner, token);
+			return scan_text(scanner);
 		}
 		else {
-			return scan_misc(scanner, token);
+			return scan_misc(scanner);
 		}
 	}
-	return false;
+	return TT_NIL;
 }
 
 bool scanner_next(scanner_t *scanner, token_t *token) {	
@@ -241,12 +237,18 @@ bool scanner_next(scanner_t *scanner, token_t *token) {
 		int line = scanner->line, col = scanner->col;
 		text_delete(scanner->text);
 		scanner->text = text_new();
-		if (scan_inner(scanner, token)) {
+		token_type_t token_type = scan_inner(scanner);
+		if (token_type != TT_NIL) {
+			token->type = token_type;
 			token->line = line;
 			token->col = col;
 			token->text = scanner->text;
 			scanner->text = 0;
 			return true;
+		}
+		else {
+			TRACE("unrecognized token at line %d, col %d: '%c'\n", line, col, scanner->lookahead[0]);
+			return false;
 		}
 	}
 	return false;
