@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "config.h"
 #include "token.h"
 
 typedef struct scanner_t scanner_t;

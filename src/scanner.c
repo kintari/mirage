@@ -8,12 +8,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define MAX_STATES 64
-
-#ifndef _countof
-#define _countof(x) (sizeof(x)/sizeof((x)[0]))
-#endif
-
 #define ALPHA_CHARS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define DIGIT_CHARS "0123456789"
 #define SPACE_CHARS " \r\n\t"
