@@ -54,6 +54,15 @@ reader_t *stdio_reader_open(const char *filename) {
 	return NULL;
 }
 
+void scan_loop(scanner_t *scanner, token_t *token) {
+	while (scanner_next(scanner, token)) {
+		text_t *text = text_escape(token->text);
+		TRACE("token: '%s', %s\n", text_buf(text), token_typeinfo[token->type].type_str);
+		text_delete(text);
+		token_clear(token);
+	}
+}
+
 int main(int argc, const char *argv[]) {
   if (argc != 2) {
 		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
@@ -63,12 +72,7 @@ int main(int argc, const char *argv[]) {
 	reader_t *reader = stdio_reader_open(filename);
 	scanner_t *scanner = scanner_new(reader);
 	token_t token = { 0 };
-	while (scanner_next(scanner, &token)) {
-		text_t *text = text_escape(token.text);
-		TRACE("token: '%s', %s\n", text_buf(text), token_typeinfo[token.type].type_str);
-		text_delete(text);
-		token_free(&token);
-	}
+	scan_loop(scanner, &token);
 	scanner_delete(scanner);
 	return 0;
 }

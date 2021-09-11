@@ -61,7 +61,7 @@ typedef struct token_t {
 	int line, col;
 } token_t;
 
-void token_free(token_t *);
+void token_clear(token_t *);
 
 typedef struct token_typeinfo_t {
 	token_type_t type;
