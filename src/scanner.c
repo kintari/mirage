@@ -48,6 +48,20 @@ static int read_char(scanner_t *s) {
 	return ret;
 }
 
+#define take_while(s,p) \
+	do { \
+		while (!eos(s) && (p)) { \
+			take(s); \
+		} \
+	} while (0)
+
+#define drop_while(s,p) \
+	do { \
+		while (!eos(s) && (p)) { \
+			drop(s); \
+		} \
+	} while (0)
+
 scanner_t *scanner_new(FILE *file, const char *filename) {
 	scanner_t *scanner = calloc(1,sizeof(scanner_t));
 	if (scanner) {
@@ -85,27 +99,31 @@ static bool take(scanner_t *scanner) {
 	return b;
 }
 
-void scan_comment(scanner_t *scanner) {
-	read_char(scanner);
-	read_char(scanner);
-	int ch;
-	while (peek(scanner, &ch) && ch != '\n')
+static bool drop(scanner_t *scanner) {
+	bool b = !eos(scanner);
+	if (b) {
 		read_char(scanner);
+	}
+	return b;
+}
+
+void scan_comment(scanner_t *scanner) {
+	drop(scanner);
+	drop(scanner);
+	drop_while(scanner, scanner->lookahead[0] != '\n');
+	drop(scanner);
 }
 
 void scan_multiline_comment(scanner_t *scanner) {
-	read_char(scanner);
-	read_char(scanner);
-	while (!eos(scanner) && !(scanner->lookahead[0] == '*' && scanner->lookahead[1] == '/')) {
-		read_char(scanner);
-	}
-	read_char(scanner);
-	read_char(scanner);
+	drop(scanner);
+	drop(scanner);
+	drop_while(scanner, scanner->lookahead[0] != '*' || scanner->lookahead[1] != '/');
+	drop(scanner);
+	drop(scanner);
 }
 
 void scan_digits(scanner_t *scanner) {
-	while (!eos(scanner) && isdigit(scanner->lookahead[0]))
-		take(scanner);
+	take_while(scanner, isdigit(scanner->lookahead[0]));
 }
 
 bool scan_numeric_literal(scanner_t *scanner, token_t *token) {
@@ -121,12 +139,8 @@ bool scan_numeric_literal(scanner_t *scanner, token_t *token) {
 	return true;
 }
 
-bool scan_text(scanner_t *scanner, token_t *token) {
-	int ch;
-	while (peek(scanner, &ch) && (isalpha(ch) || isdigit(ch) || ch == '_'))
-		take(scanner);
-	const char *text = text_buf(scanner->text);
-	const struct {
+int get_keyword_type(const char *text) {
+	static const struct {
 		const char *type_str;
 		int type;
 	} keywords[] = {
@@ -139,18 +153,22 @@ bool scan_text(scanner_t *scanner, token_t *token) {
 		{ "const", TT_KW_CONST },
 		{ "return", TT_KW_RETURN },
 	};
-	for (int i = 0; i < _countof(keywords); i++) {
-		if (strcmp(text, keywords[i].type_str) == 0) {
-			token->type = keywords[i].type;
-			return true;
-		}
-	}
-	token->type = TT_IDENTIFIER;
+	for (int i = 0; i < countof(keywords); i++)
+		if (strcmp(text, keywords[i].type_str) == 0)
+			return keywords[i].type;
+	return -1;
+}
+
+bool scan_text(scanner_t *scanner, token_t *token) {
+	int *pch = &scanner->lookahead[0];
+	take_while(scanner, isalpha(*pch) || isdigit(*pch) || *pch == '_');
+	int keyword_type = get_keyword_type(text_buf(scanner->text));
+	token->type = keyword_type == -1 ? TT_IDENTIFIER : keyword_type;
 	return true;
 }
 
 bool scan_misc(scanner_t *scanner, token_t *token) {
-	struct {
+	static const struct {
 		const char text[3];
 		int type;
 	} misc_tokens[] = {
@@ -197,8 +215,7 @@ bool scan_misc(scanner_t *scanner, token_t *token) {
 static bool scan_inner(scanner_t *scanner, token_t *token) {
 	while (!eos(scanner)) {
 		if (isspace(scanner->lookahead[0])) {
-			while (!eos(scanner) && isspace(scanner->lookahead[0]))
-				read_char(scanner);
+			drop_while(scanner, isspace(scanner->lookahead[0]));
 		}
 		else if (scanner->lookahead[0] == '/' && scanner->lookahead[1] == '/') {
 			scan_comment(scanner);
