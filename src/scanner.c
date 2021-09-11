@@ -14,8 +14,7 @@
 #define MISC_CHARS  "(){}[],.;:+-*/"
 
 struct scanner_t {
-	FILE *file;
-	char *filename;
+	reader_t *reader;
 	int line, col;
 	int lookahead[2];
 	text_t *text;
@@ -29,7 +28,7 @@ static int read_char(scanner_t *s) {
 	int ret = s->lookahead[0];
 	if (ret != -1) {
 		char ch;
-		if (fread(&ch, 1, 1, s->file) != 1)
+		if (s->reader->read_bytes(s->reader, &ch, 1) != 1)
 			ch = -1;
 		s->lookahead[0] = s->lookahead[1];
 		s->lookahead[1] = ch;
@@ -62,11 +61,10 @@ static int read_char(scanner_t *s) {
 		} \
 	} while (0)
 
-scanner_t *scanner_new(FILE *file, const char *filename) {
+scanner_t *scanner_new(reader_t *reader) {
 	scanner_t *scanner = calloc(1,sizeof(scanner_t));
 	if (scanner) {
-		scanner->file = file;
-		scanner->filename = strdup(filename);
+		scanner->reader = reader;
 		scanner->line = 1;
 		scanner->col = 1;
 		scanner->text = text_new();
@@ -78,8 +76,7 @@ scanner_t *scanner_new(FILE *file, const char *filename) {
 
 void scanner_delete(scanner_t *scanner) {
 	text_delete(scanner->text);
-	free(scanner->filename);
-	free(scanner);
+	if (scanner->reader->destroy) scanner->reader->destroy(scanner->reader);
 }
 
 static bool peek(scanner_t *scanner, int *pch) {
@@ -247,7 +244,7 @@ bool scanner_next(scanner_t *scanner, token_t *token) {
 			return true;
 		}
 		else {
-			TRACE("unrecognized token at line %d, col %d: '%c'\n", line, col, scanner->lookahead[0]);
+			TRACE("unrecognized token at %s(%d,%d): '%c'\n", scanner->reader->get_name, line, col, scanner->lookahead[0]);
 			return false;
 		}
 	}

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #ifdef _MSC_VER
 #define strdup _strdup
 #endif
