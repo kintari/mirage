@@ -21,7 +21,7 @@ struct scanner_t {
 	text_t *text;
 };
 
-bool eos(scanner_t *scanner) {
+static bool eos(scanner_t *scanner) {
 	return scanner->lookahead[0] == -1;
 }
 
@@ -106,14 +106,14 @@ static bool drop(scanner_t *scanner) {
 	return b;
 }
 
-void scan_comment(scanner_t *scanner) {
+static void scan_comment(scanner_t *scanner) {
 	drop(scanner);
 	drop(scanner);
 	drop_while(scanner, scanner->lookahead[0] != '\n');
 	drop(scanner);
 }
 
-void scan_multiline_comment(scanner_t *scanner) {
+static void scan_multiline_comment(scanner_t *scanner) {
 	drop(scanner);
 	drop(scanner);
 	drop_while(scanner, scanner->lookahead[0] != '*' || scanner->lookahead[1] != '/');
@@ -121,11 +121,11 @@ void scan_multiline_comment(scanner_t *scanner) {
 	drop(scanner);
 }
 
-void scan_digits(scanner_t *scanner) {
+static void scan_digits(scanner_t *scanner) {
 	take_while(scanner, isdigit(scanner->lookahead[0]));
 }
 
-token_type_t scan_numeric_literal(scanner_t *scanner) {
+static token_type_t scan_numeric_literal(scanner_t *scanner) {
 	scan_digits(scanner);
 	if (scanner->lookahead[0] == '.' && isdigit(scanner->lookahead[1])) {
 		take(scanner);
@@ -137,7 +137,7 @@ token_type_t scan_numeric_literal(scanner_t *scanner) {
 	}
 }
 
-token_type_t get_keyword_type(const char *text) {
+static token_type_t get_keyword_type(const char *text) {
 	static const struct {
 		const char *type_str;
 		int type;
@@ -157,14 +157,14 @@ token_type_t get_keyword_type(const char *text) {
 	return TT_NIL;
 }
 
-token_type_t scan_text(scanner_t *scanner) {
+static token_type_t scan_text(scanner_t *scanner) {
 	int *pch = &scanner->lookahead[0];
 	take_while(scanner, isalpha(*pch) || isdigit(*pch) || *pch == '_');
 	token_type_t keyword_type = get_keyword_type(text_buf(scanner->text));
 	return keyword_type == TT_NIL ? TT_IDENTIFIER : keyword_type;
 }
 
-token_type_t scan_misc(scanner_t *scanner) {
+static token_type_t scan_misc(scanner_t *scanner) {
 	static const struct {
 		const char text[3];
 		token_type_t type;
