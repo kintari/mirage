@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\debug.c" />
     <ClCompile Include="..\src\main.c" />
+    <ClCompile Include="..\src\parser.c" />
     <ClCompile Include="..\src\scanner.c" />
     <ClCompile Include="..\src\text.c" />
     <ClCompile Include="..\src\token.c" />
@@ -140,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\debug.h" />
+    <ClInclude Include="..\src\parser.h" />
     <ClInclude Include="..\src\scanner.h" />
     <ClInclude Include="..\src\text.h" />
     <ClInclude Include="..\src\token.h" />

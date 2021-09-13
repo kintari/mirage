@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
 #include <stdio.h>
 
 #include "config.h"
@@ -18,4 +17,4 @@ scanner_t *scanner_new(reader_t *);
 
 void scanner_delete(scanner_t *);
 
-bool scanner_next(scanner_t *, token_t *);
+int scanner_next(scanner_t *, token_t *);

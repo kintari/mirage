@@ -13,9 +13,38 @@ static const text_t TEXT_EMPTY = { .buf=NULL, .len=0 };
 
 text_t *text_new() {
 	text_t *text = malloc(sizeof(text_t));
-	text->buf = malloc(0);
+	text->buf = malloc(1);
+	text->buf[0] = 0;
 	text->len = 0;
 	return text;
+}
+
+text_t *text_new_from_cstr(const char *cstr) {
+	text_t *text = NULL;
+	if (cstr) {
+		text = malloc(sizeof(text_t));
+		size_t len = strlen(cstr);
+		text->buf = malloc(len + 1);
+		memcpy(text->buf, cstr, len);
+		text->buf[len] = 0;
+		text->len = len;
+	}
+	return text;
+}
+
+text_t *text_copy(const text_t *text) {
+	text_t *copy = NULL;
+	if (text) {
+		// make a copy of text->buf
+		char *buf = malloc(text->len + 1);
+		memcpy(buf, text->buf, text->len);
+		buf[text->len] = 0;
+		// construct new text object
+		copy = malloc(sizeof(text_t));
+		copy->buf = buf;
+		copy->len = text->len;
+	}
+	return copy;
 }
 
 void text_delete(text_t *text) {

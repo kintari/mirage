@@ -10,11 +10,3 @@ void token_clear(token_t *token) {
 		*token = (token_t) { 0 };
 	}
 }
-
-#define X(t) { .type=t, .type_str=#t },
-
-const token_typeinfo_t token_typeinfo[TT_COUNT+1] = {
-	TOKEN_TYPES
-};
-
-#undef X

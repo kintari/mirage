@@ -2,6 +2,7 @@
 #include "scanner.h"
 #include "debug.h"
 #include "text.h"
+#include "parser.h"
 
 #include <stdio.h>
 #include <malloc.h>
@@ -54,25 +55,35 @@ reader_t *stdio_reader_open(const char *filename) {
 	return NULL;
 }
 
-void scan_loop(scanner_t *scanner, token_t *token) {
-	while (scanner_next(scanner, token)) {
+int parse_loop(scanner_t *scanner, token_t *token) {
+	int error;
+	while ((error = scanner_next(scanner, token)) == 0) {
 		text_t *text = text_escape(token->text);
-		TRACE("token: '%s', %s\n", text_buf(text), token_typeinfo[token->type].type_str);
+		TRACE("token: text='%s', type='%s'\n", text_buf(text), text_buf(token->type));
 		text_delete(text);
-		token_clear(token);
+		//parser_advance(token);
+		text_delete(token->text);
+		text_delete(token->type);
+		*token = (token_t) { 0 };
 	}
+	return error;
 }
 
-int main(int argc, const char *argv[]) {
-  if (argc != 2) {
-		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
-		return -1;
-	}
-	const char *filename = argv[1];
+int parse_file(const char *filename) {
 	reader_t *reader = stdio_reader_open(filename);
 	scanner_t *scanner = scanner_new(reader);
 	token_t token = { 0 };
-	scan_loop(scanner, &token);
+	int error = parse_loop(scanner, &token);
 	scanner_delete(scanner);
-	return 0;
+	return error;
+}
+
+int main(int argc, const char *argv[]) {
+	if (argc != 2) {
+		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
+		return -1;
+	}
+	else {
+		return parse_file(argv[1]);
+	}
 }
