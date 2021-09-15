@@ -17,6 +17,10 @@ FILE *open_file(const char *filename, const char *mode) {
 	return file;
 }
 
+reader_t *reader;
+scanner_t *scanner;
+parser_t *parser;
+
 typedef struct stdio_reader_t {
 	reader_t base;
 	char *filename;
@@ -55,25 +59,32 @@ reader_t *stdio_reader_open(const char *filename) {
 	return NULL;
 }
 
-int parse_loop(scanner_t *scanner, token_t *token) {
+int parse_loop() {
 	int error;
-	while ((error = scanner_next(scanner, token)) == 0) {
-		text_t *text = text_escape(token->text);
-		TRACE("token: text='%s', type='%s'\n", text_buf(text), text_buf(token->type));
+	token_t token = { 0 };
+	while ((error = scanner_next(scanner, &token)) == 0) {
+		// print the token
+		text_t *text = text_escape(token.text);
+		TRACE("token: text='%s', type='%s'\n", text_buf(text), text_buf(token.type));
 		text_delete(text);
-		//parser_advance(token);
-		text_delete(token->text);
-		text_delete(token->type);
-		*token = (token_t) { 0 };
+
+		// handle the token
+		parser_advance(parser, &token);
+		
+		// free token members
+		text_delete(token.text);
+		text_delete(token.type);
+		token = (token_t) { 0 };
 	}
 	return error;
 }
 
 int parse_file(const char *filename) {
-	reader_t *reader = stdio_reader_open(filename);
-	scanner_t *scanner = scanner_new(reader);
-	token_t token = { 0 };
-	int error = parse_loop(scanner, &token);
+	reader = stdio_reader_open(filename);
+	scanner = scanner_new(reader);
+	parser = parser_new();
+	int error = parse_loop();
+	parser_delete(parser);
 	scanner_delete(scanner);
 	return error;
 }

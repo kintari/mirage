@@ -2,8 +2,6 @@
 
 #include <stdlib.h>
 
-
-
 struct parser_t {
 	int state;
 };
@@ -15,4 +13,10 @@ parser_t *parser_new() {
 
 void parser_delete(parser_t *parser) {
 	free(parser);
+}
+
+int parser_advance(parser_t *parser, const token_t *token) {
+	(void) parser;
+	(void) token;
+	return 0;
 }
