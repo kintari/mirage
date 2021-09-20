@@ -136,6 +136,8 @@
     <ClCompile Include="..\src\main.c" />
     <ClCompile Include="..\src\parser.c" />
     <ClCompile Include="..\src\scanner.c" />
+    <ClCompile Include="..\src\set.c" />
+    <ClCompile Include="..\src\stack.c" />
     <ClCompile Include="..\src\text.c" />
     <ClCompile Include="..\src\token.c" />
   </ItemGroup>
@@ -145,6 +147,8 @@
     <ClInclude Include="..\src\list.h" />
     <ClInclude Include="..\src\parser.h" />
     <ClInclude Include="..\src\scanner.h" />
+    <ClInclude Include="..\src\set.h" />
+    <ClInclude Include="..\src\stack.h" />
     <ClInclude Include="..\src\text.h" />
     <ClInclude Include="..\src\token.h" />
   </ItemGroup>

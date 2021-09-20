@@ -2,169 +2,11 @@
 #include "parser.h"
 #include "debug.h"
 #include "list.h"
+#include "stack.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef struct bst_node_t {
-	void *value;
-	struct bst_node_t *left, *right;
-} bst_node_t;
-
-bst_node_t *bst_node_new() {
-	return calloc(1, sizeof(bst_node_t));
-}
-
-void bst_free(bst_node_t *node) {
-	if (node) {
-		bst_free(node->left);
-		bst_free(node->right);
-		free(node);
-	}
-}
-
-void bst_traverse(bst_node_t *node, void (*f)(void *value, void *context), void *context) {
-	if (node->value) {
-		bst_traverse(node->left, f, context);
-		f(node->value, context);
-		bst_traverse(node->right, f, context);
-	}
-}
-
-typedef struct set_t {
-	bst_node_t *root;
-	size_t count;
-	int (*compare)(const void *, const void *);
-} set_t;
-
-set_t *set_new(int (*compare)(const void *, const void *)) {
-	set_t *s = malloc(sizeof(set_t));
-	s->root = bst_node_new();
-	s->count = 0;
-	s->compare = compare;
-	return s;
-}
-
-void set_delete(set_t **setp) {
-	ASSERT(setp);
-	bst_free((*setp)->root);
-	free(*setp);
-	*setp = NULL;
-}
-
-static bst_node_t *set_search(set_t *s, const void *value) {
-	bst_node_t *node = s->root;
-	int cmp;
-	while (node->value && ((cmp = s->compare(value, node->value)) != 0))
-		node = (cmp == -1) ? node->left : node->right;
-	return node;
-}
-
-void set_add(set_t *s, void *value) {
-	bst_node_t *node = set_search(s, value);
-	if (node->value == NULL) { // do not re-add elements
-		node->value = value;
-		node->left = bst_node_new();
-		node->right = bst_node_new();
-		s->count++;
-	}
-}
-
-void set_foreach(set_t *s, void (*f)(void *value, void *context), void *context) {
-	bst_traverse(s->root, f, context);
-}
-
-/*
-typedef struct set_iter_t {
-	iterator_t base;
-	bst_node_t **nodes;
-	size_t num_nodes;
-} set_iter_t;
-
-void *set_iter_value(set_iter_t *iter) {
-
-}
-
-bool set_iter_done(const set_iter_t *iter) {
-	return true;
-}
-
-void set_iter_advance(set_iter_t *s) {
-
-}
-
-iterator_t *set_iterate(set_t *s) {
-	set_iter_t *iter = malloc(sizeof(set_iter_t));
-	iter->base.advance = set_iter_advance;
-	iter->base.done = set_iter_done;
-	iter->base.value = set_iter_value;
-	if (s->count != 0) {
-		iter->nodes = calloc(1, sizeof(bst_node_t *));
-		iter->nodes[0] = s->root;
-		iter->num_nodes = 1;
-	}
-	else {
-		iter->nodes = NULL;
-		iter->num_nodes = 0;
-	}
-}
-*/
-
-
-typedef struct stack_node_t {
-	void *value;
-	struct stack_node_t *next;
-} stack_node_t;
-
-typedef struct stack_t {
-	stack_node_t *top;
-	size_t depth;
-} stack_t;
-
-stack_t *stack_new() {
-	return calloc(1, sizeof(stack_t));
-}
-
-void stack_delete(stack_t *stack) {
-	stack_node_t *node = stack->top;
-	while (node != NULL) {
-		stack_node_t *next = node->next;
-		free(node);
-		node = next;
-	}
-	free(stack);
-}
-
-size_t stack_depth(const stack_t *stack) {
-	ASSERT(stack);
-	return stack->depth;
-}
-
-void stack_push(stack_t *stack, void *value) {
-	ASSERT(stack);
-	stack_node_t *node = malloc(sizeof(stack_node_t));
-	node->value = value;
-	node->next = stack->top;
-	stack->top = node;
-	stack->depth++;
-}
-
-void *stack_pop(stack_t *stack) {
-	ASSERT(stack->depth);
-	if (stack->depth == 0)
-		abort();
-	stack_node_t *node = stack->top;
-	stack->top = stack->top->next;
-	stack->depth--;
-	void *value = node->value;
-	free(node);
-	return value;
-}
-
-
-
-
 
 typedef struct rule_t {
 	const char *lhs;
@@ -290,7 +132,6 @@ void print_itemset(list_t *item_set) {
 }
 
 parser_t *parser_new() {
-
 
 	// create the start item set, containing a single item corresponding to the start rule S -> whatever
 	list_t *start_state = list_new();
