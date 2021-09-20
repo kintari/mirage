@@ -1,1 +1,1 @@
-run = "clear; make -f linux/Makefile && linux/run.sh"
+run = "clear; make -f linux/Makefile && linux/debug.sh"

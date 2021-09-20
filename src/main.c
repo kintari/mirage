@@ -83,7 +83,8 @@ int parse_file(const char *filename) {
 	reader = stdio_reader_open(filename);
 	scanner = scanner_new(reader);
 	parser = parser_new();
-	int error = parse_loop();
+	//int error = parse_loop();
+	int error = 0;
 	parser_delete(parser);
 	scanner_delete(scanner);
 	return error;

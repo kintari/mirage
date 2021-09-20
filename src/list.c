@@ -1,140 +1,114 @@
-
-
-/*
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
-
+#include "list.h"
 #include "debug.h"
 
-#define iterate(seq,var) (_Generic(seq), list_t: list_iterate)
+#include <stdlib.h>
 
-#define foreach(seq,var_name,action) (_Generic(seq), list_t: list_foreach)
-
-typedef struct iterator_t {
-	void *container, *state;
-	bool (*more)(const struct iterator_t *);
-	const void *(*value)(const struct iterator_t *);
-	void (*advance)(struct iterator_t *);
-} iterator_t;
-
-typedef struct array_t {
-	size_t len;
-} array_t;
-
-#define array_from(...) array_new(countof(__VA_LIST__), (const void **) { __VA_LIST__ })
-
-array_t *array_new(int len, const void **pelem) {
-	array_t *array = NULL;
-	if (len >= 0) {
-		size_t size = sizeof(array_t) + len * sizeof(void *);
-		array = malloc(size);
-		array->len = len;
-		void **tbl = (void **) &array[1];
-		for (int i = 0; i < len; i++)
-			tbl[i] = (void *) pelem[i];
-	}
-	return array;
+void *list_iter_value(iterator_t *iter) {
+	return ((list_node_t *) iter->context)->value;
 }
 
-void array_delete(array_t *array) {
-	free(array);
+bool list_iter_done(iterator_t *iter) {
+	list_node_t *node = (list_node_t *) iter->context;
+	list_t *list = (list_t *) iter->iterable;
+	return node == list->tail;
 }
 
-void *array_get(array_t *array, int index) {
-	ASSERT(array);
-	ASSERT(index >= 0);
-	ASSERT(index < array->len);
-	void **tbl = (void **) &array[1];
-	return tbl[index];
+void list_iter_advance(iterator_t *iter) {
+	list_node_t *node = (list_node_t *) iter->context;
+	iter->context = node->next;
 }
 
-typedef struct list_node_t {
-	const void *value;
-	struct list_node_t *prev, *next;
-} list_node_t;
+iterator_t *list_iterate(object_t *obj) {
+	list_t *list = (list_t *) obj;
+	iterator_t *iter = calloc(1,sizeof(iter));
+	iter->value = list_iter_value;
+	iter->done = list_iter_done;
+	iter->advance = list_iter_advance;
+	iter->iterable = obj;
+	iter->context = list->head->next;
+	return iter;
+}
 
-typedef struct list_t {
-	list_node_t *head, *tail;
-	size_t len;
-} list_t;
+const type_t list_type = {
+	.iterate = list_iterate
+};
 
 list_t *list_new() {
-	list_t *list = malloc(sizeof(list_t));
-	list->head = malloc(sizeof(list_node_t));
-	list->tail = malloc(sizeof(list_node_t));
-	list->head->prev = NULL;
+	list_t *list = calloc(1, sizeof(list_t));
+	list->object.type = &list_type;
+	list->object.num_refs = 1;
+	list->head = calloc(1, sizeof(list_node_t));
+	list->tail = calloc(1, sizeof(list_node_t));
 	list->head->next = list->tail;
 	list->tail->prev = list->head;
-	list->tail->next = NULL;
-	list->len = 0;
 	return list;
 }
 
-static bool list_iter_more(const iterator_t *iter) {
-	return iter->state != ((list_t *) iter->container)->tail;
+void list_delete(list_t **listp) {
+	ASSERT(listp);
+	ASSERT(*listp);
+	list_t *list = *listp;
+	list_node_t *node = list->head;
+	while (node) {
+		list_node_t *next = node->next;
+		free(node);
+		node = next;
+	}
+	free(list);
+	*listp = NULL;
 }
 
-static const void *list_iter_value(const iterator_t *iter) {
-	return ((list_node_t *) iter->state)->value;
+list_node_t *list_begin(list_t *list) {
+	return list->head->next;
 }
 
-static void list_iter_advance(iterator_t *iter) {
-	list_node_t *node = iter->state;
-	iter->state = node->next;
+list_node_t *list_end(list_t *list) {
+	return list->tail;
 }
 
-iterator_t list_iterate(list_t *list) {
-	return (iterator_t){
-		.container = list,
-			.state = list->head->next,
-			.more = list_iter_more,
-			.value = list_iter_value,
-			.advance = list_iter_advance
-	};
-}
-
-void list_append(list_t *list, const void *value) {
-	list_node_t *node = malloc(sizeof(list_node_t));
-	node->prev = list->tail->prev;
-	node->next = list->tail;
+void list_insert(list_t *list, list_node_t *pos, void *value) {
+	// new node is inserted before 'pos'
+	ASSERT(pos);
+	ASSERT(pos->prev);
+	list_node_t *node = calloc(1, sizeof(list_node_t));
+	node->value = value;
+	node->prev = pos->prev;
+	node->next = pos;
 	node->prev->next = node;
 	node->next->prev = node;
-	node->value = value;
-	list->len++;
+	list->count++;
 }
 
-void list_foreach(list_t *list, void (*fn)(const void *)) {
-	for (iterator_t iter = list_iterate(list); iter.more(&iter); iter.advance(&iter))
-		fn(iter.value(&iter));
+void list_append(list_t *list, void *value) {
+	list_insert(list, list_end(list), value);
 }
 
-list_t *list_map(list_t *list, const void *(*fn)(const void *)) {
-	list_t *result = NULL;
-	if (result) {
-		result = list_new();
-		list_node_t *node = list->head->next;
-		while (node != list->tail) {
-			const void *value = fn(node->value);
-			list_append(result, value);
-			node = node->next;
-		}
-	}
+void *list_remove(list_t *list, list_node_t *node) {
+	ASSERT(list);
+	ASSERT(node);
+	ASSERT(node->prev);
+	ASSERT(node->next);
+	node->prev->next = node->next;
+	node->next->prev = node->prev;
+	void *result = node->value;
+	free(node);
+	list->count--;
 	return result;
 }
 
-void list_delete(list_t *list) {
-	ASSERT(list);
-	if (list) {
-		list_node_t *node = list->head->next;
-		while (node != list->tail) {
-			list_node_t *next = node->next;
-			free(node);
-			node = next;
-		}
-		free(list->head);
-		free(list->tail);
-		free(list);
-	}
+static int trivial_compare(void *x, void *y) {
+	if (x > y) return  1;
+	if (x < y) return -1;
+	return 0;
 }
-*/
+
+bool list_contains(list_t *list, void *value, int (*compare)(void *, void *)) {
+	list_node_t *node = list->head->next;
+	if (compare == NULL) compare = trivial_compare;
+	while (node != list->tail) {
+		if (compare(value, node->value) == 0)
+			return true;
+		node = node->next;
+	}
+	return false;
+}

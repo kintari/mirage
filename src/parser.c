@@ -1,6 +1,7 @@
 #include "config.h"
 #include "parser.h"
 #include "debug.h"
+#include "list.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -30,13 +31,6 @@ void bst_traverse(bst_node_t *node, void (*f)(void *value, void *context), void 
 		bst_traverse(node->right, f, context);
 	}
 }
-
-typedef struct iterator_t {
-	bool (*done)(const struct iterator_t *);
-	void *(*value)(struct iterator_t *);
-	void (*advance)(struct iterator_t *);
-	void *collection;
-} iterator_t;
 
 typedef struct set_t {
 	bst_node_t *root;
@@ -169,93 +163,8 @@ void *stack_pop(stack_t *stack) {
 }
 
 
-typedef struct list_node_t {
-	void *value;
-	struct list_node_t *prev, *next;
-} list_node_t;
 
-typedef struct list_t {
-	list_node_t *head, *tail;
-	size_t count;
-} list_t;
 
-list_t *list_new() {
-	list_t *list = calloc(1, sizeof(list_t));
-	list->head = calloc(1, sizeof(list_node_t));
-	list->tail = calloc(1, sizeof(list_node_t));
-	list->head->next = list->tail;
-	list->tail->prev = list->head;
-	return list;
-}
-
-void list_delete(list_t **listp) {
-	ASSERT(listp);
-	ASSERT(*listp);
-	list_t *list = *listp;
-	list_node_t *node = list->head;
-	while (node) {
-		list_node_t *next = node->next;
-		free(node);
-		node = next;
-	}
-	free(list);
-	*listp = NULL;
-}
-
-list_node_t *list_begin(list_t *list) {
-	return list->head->next;
-}
-
-list_node_t *list_end(list_t *list) {
-	return list->tail;
-}
-
-void list_insert(list_t *list, list_node_t *pos, void *value) {
-	// new node is inserted before 'pos'
-	ASSERT(pos);
-	ASSERT(pos->prev);
-	list_node_t *node = calloc(1, sizeof(list_node_t));
-	node->value = value;
-	node->prev = pos->prev;
-	node->next = pos;
-	node->prev->next = node;
-	node->next->prev = node;
-	list->count++;
-}
-
-void list_append(list_t *list, void *value) {
-	list_insert(list, list_end(list), value);
-}
-
-void *list_remove(list_t *list, list_node_t *node) {
-	ASSERT(list);
-	ASSERT(node);
-	ASSERT(node->prev);
-	ASSERT(node->next);
-	node->prev->next = node->next;
-	node->next->prev = node->prev;
-	void *result = node->value;
-	free(node);
-	list->count--;
-	return result;
-}
-
-static int trivial_compare(void *x, void *y) {
-	if (x > y) return  1;
-	if (x < y) return -1;
-	return 0;
-}
-
-bool list_contains(list_t *list, void *value, int (*compare)(void *, void *)) {
-	list_node_t *node = list->head->next;
-	if (compare == NULL) compare = trivial_compare;
-	while (node != list->tail) {
-		if (compare(value, node->value) == 0)
-			return true;
-		node = node->next;
-	}
-	return false;
-}
 
 typedef struct rule_t {
 	const char *lhs;
@@ -344,8 +253,10 @@ static list_t *closure(list_t *kernel) {
 	list_t *lr_items = list_new();
 	list_t *result = list_new();
 
-	for (list_node_t *node = list_begin(kernel); node != list_end(kernel); node = node->next)
-		list_insert(lr_items, list_end(lr_items), node->value);
+	for (iterator_t *iter = iterate(kernel); !done(iter); advance(iter)) {
+	//for (list_node_t *node = list_begin(kernel); node != list_end(kernel); node = node->next)
+		list_insert(lr_items, list_end(lr_items), value(iter));
+	}
 
 	while (lr_items->count > 0) {
 		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
