@@ -43,6 +43,7 @@ void stack_push(stack_t *stack, void *value) {
 }
 
 void *stack_pop(stack_t *stack) {
+	DbgCheckHeap();
 	ASSERT(stack->depth);
 	if (stack->depth == 0)
 		abort();
@@ -51,5 +52,6 @@ void *stack_pop(stack_t *stack) {
 	stack->depth--;
 	void *value = node->value;
 	free(node);
+	DbgCheckHeap();
 	return value;
 }

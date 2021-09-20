@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "list.h"
 #include "stack.h"
+#include "iterator.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -59,14 +60,6 @@ static void lr_item_delete(lr_item_t *item) {
 	}
 }
 
-/*
-static lr_item_t *lr_item_clone(const lr_item_t *item) {
-	lr_item_t *clone = malloc(sizeof(lr_item_t));
-	*clone = *item;
-	return clone;
-}
-*/
-
 static int lr_item_cmp(const lr_item_t *x, const lr_item_t *y) {
 	int cmp = strcmp(x->lhs, y->lhs);
 	if (cmp) return cmp;
@@ -88,17 +81,23 @@ void print_item(const lr_item_t *item) {
 		TRACE(" %s", item->rhs[i]);
 }
 
-
 static list_t *closure(list_t *kernel) {
 	ASSERT(kernel);
 	
 	list_t *lr_items = list_new();
 	list_t *result = list_new();
 
+	DbgCheckHeap();
+
 	for (iterator_t *iter = iterate(kernel); !done(iter); advance(iter)) {
-	//for (list_node_t *node = list_begin(kernel); node != list_end(kernel); node = node->next)
 		list_insert(lr_items, list_end(lr_items), value(iter));
 	}
+
+	/*
+	for (list_node_t *node = list_begin(kernel); node != list_end(kernel); node = node->next) {
+		list_insert(lr_items, list_end(lr_items), node->value);
+	}
+	*/
 
 	while (lr_items->count > 0) {
 		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
@@ -147,11 +146,13 @@ parser_t *parser_new() {
 		// get the next item set and compute its closure
 		list_t *kernel = stack_pop(stack);
 		list_t *state = closure(kernel);
-		list_delete(&kernel);
+		list_delete(kernel);
+		DbgCheckHeap();
 
 		TRACE("state %d:\n", num_states);
 		print_itemset(state);
 		num_states++;
+		DbgCheckHeap();
 
 		// collect all symbols which immediately follow a dot
 		list_t *symbols = list_new();
@@ -163,25 +164,32 @@ parser_t *parser_new() {
 				if (symbol && !list_contains(symbols, symbol, (int (*)(void *, void *)) strcmp)) {
 					list_append(symbols, strdup(symbol));
 				}
+				DbgCheckHeap();
 			}
 		}
 
+		DbgCheckHeap();
 		TRACE("symbols leading to other states:");
 		for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next)
 			TRACE(" %s", node->value);
 		TRACE("\n");
+		DbgCheckHeap();
 
 		// for each symbol in symbols, build the kernel of the state that it leads to
 		for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next) {
 			char *symbol = node->value;
 			if (symbol) {
+				DbgCheckHeap();
 				list_t *new_kernel = list_new();
+				DbgCheckHeap();
 				for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
 					lr_item_t *item = item_node->value;
 					if (item->dot < item->rhs_len && strcmp(item->rhs[item->dot+1], symbol) == 0)
 						list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
+					DbgCheckHeap();
 				}
 				stack_push(stack, new_kernel);
+				DbgCheckHeap();
 			}
 		}
 
@@ -190,11 +198,13 @@ parser_t *parser_new() {
 		if (0) {
 		for (list_node_t *node = state->head->next; node != state->tail; node = node->next)
 			lr_item_delete(node->value);
+			DbgCheckHeap();
 		}
 		
 		//for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next)
 		//	free(node->value);
-		list_delete(&symbols);
+		list_delete(symbols);
+		DbgCheckHeap();
 	}
 
 	parser_t *parser = calloc(1,sizeof(parser_t));

@@ -91,6 +91,13 @@ int parse_file(const char *filename) {
 }
 
 int main(int argc, const char *argv[]) {
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+	int tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	tmp |= _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_CHECK_ALWAYS_DF;
+	_CrtSetDbgFlag(tmp);
+#endif
+
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s <filename>\n", argv[0]);
 		return -1;
