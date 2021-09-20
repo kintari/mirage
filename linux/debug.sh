@@ -1,2 +1,3 @@
 #!/bin/sh
-gdb --args "" "fib.txt"
+. linux/config.env
+gdb --args "${TARGET}" "test/fib.txt"

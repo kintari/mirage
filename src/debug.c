@@ -14,7 +14,7 @@ char *vasprintf(const char *format, va_list args) {
 	char *buf = NULL;
 	va_list args_copy;
 	va_copy(args_copy, args);
-	size_t count = vsnprintf(NULL, 0, format, args);
+	size_t count = vsnprintf(NULL, 0, format, args_copy);
 	if (count > 0) {
 		size_t buf_len = count + 1;
 		if ((buf = malloc(buf_len)) != NULL) {

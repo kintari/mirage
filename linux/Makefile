@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wall -Werror -O0 -fPIC -D_POSIX_C_SOURCE=200809L
+CFLAGS=-g -Wall -Werror -fPIC -D_POSIX_C_SOURCE=200809L
 
 MAKEFILE:=$(CURDIR)/$(lastword $(MAKEFILE_LIST))
 

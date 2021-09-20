@@ -291,8 +291,8 @@ static lr_item_t *lr_item_new(const rule_t *rule, int dot) {
 	item->rhs = calloc(item->rhs_len + 1 /* for the trailing null */, sizeof(void *));
 	for (int i = 0; i < dot; i++)
 		item->rhs[i] = strdup(rule->rhs[i]);
-	item->rhs[dot] = strdup("·");
-	for (int i = dot; i < item->rhs_len; i++)
+	item->rhs[dot] = strdup(".");
+	for (int i = dot; i + 1 < item->rhs_len; i++)
 		item->rhs[i+1] = strdup(rule->rhs[i]);
 	item->dot = dot;
 	return item;
@@ -349,7 +349,7 @@ static list_t *closure(list_t *kernel) {
 
 	while (lr_items->count > 0) {
 		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
-		if (!list_contains(result, item, lr_item_cmp))
+		if (!list_contains(result, item, (int (*)(void *, void *)) lr_item_cmp))
 			list_insert(result, list_end(result), item);
 		const char *next_symbol = item->rhs[item->dot+1];
 		if (next_symbol) {
@@ -408,7 +408,7 @@ parser_t *parser_new() {
 			// only consider items with something after the dot
 			if (item->dot < item->rhs_len) {
 				char *symbol = item->rhs[item->dot+1];
-				if (symbol && !list_contains(symbols, symbol, strcmp)) {
+				if (symbol && !list_contains(symbols, symbol, (int (*)(void *, void *)) strcmp)) {
 					list_append(symbols, strdup(symbol));
 				}
 			}
@@ -434,6 +434,14 @@ parser_t *parser_new() {
 		}
 
 		TRACE("\n");
+		
+		if (0) {
+		for (list_node_t *node = state->head->next; node != state->tail; node = node->next)
+			lr_item_delete(node->value);
+		}
+		
+		//for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next)
+		//	free(node->value);
 		list_delete(&symbols);
 	}
 

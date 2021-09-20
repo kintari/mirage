@@ -88,11 +88,6 @@ void scanner_delete(scanner_t *scanner) {
 	if (scanner->reader->destroy) scanner->reader->destroy(scanner->reader);
 }
 
-static bool peek(scanner_t *scanner, int *pch) {
-	int ch = scanner->lookahead[0];
-	return ch != -1 ? (*pch = ch), true : false;
-}
-
 static bool take(scanner_t *scanner, token_t *token) {
 	bool b = !eos(scanner);
 	if (b) {

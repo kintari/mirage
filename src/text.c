@@ -9,8 +9,6 @@ struct text_t {
 	size_t len; // length of the string, in characters, not including null terminator
 };
 
-static const text_t TEXT_EMPTY = { .buf=NULL, .len=0 };
-
 text_t *text_new() {
 	text_t *text = malloc(sizeof(text_t));
 	text->buf = malloc(1);
