@@ -9,19 +9,27 @@ typedef struct iterator_t iterator_t;
 
 typedef struct iterator_t {
 	object_t object;
+	object_t *iterable;
+	void *context;
+	size_t ordinal;
+} iterator_t;
+
+typedef struct iterable_vtbl_t {
+	iterator_t *(*iterate)(object_t *, void *);
+} iterable_vtbl_t;
+
+typedef struct iterator_vtbl_t {
 	bool (*done)(iterator_t *);
 	void (*advance)(iterator_t *);
 	void *(*value)(iterator_t *);
-	object_t *iterable;
-	void *context;
-} iterator_t;
+} iterator_vtbl_t;
 
-iterator_t *iterate_impl(object_t *obj);
-
-#define iterate(x) iterate_impl((object_t *)(x))
+iterator_t *iterate(object_t *, void *);
 
 void *value(iterator_t *iter);
 
 bool done(iterator_t *iter);
 
 void advance(iterator_t *iter);
+
+#define foreach(iterable,identifier) for (iterator_t *identifier = iterate(iterable, NULL); !done(identifier); advance(identifier))

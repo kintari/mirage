@@ -4,10 +4,6 @@
 
 #include <stdlib.h>
 
-const type_t list_iterator_type = {
-	.destroy = free
-};
-
 void *list_iter_value(iterator_t *iter) {
 	return ((list_node_t *) iter->context)->value;
 }
@@ -23,22 +19,30 @@ void list_iter_advance(iterator_t *iter) {
 	iter->context = node->next;
 }
 
+const iterator_vtbl_t list_iter_vtbl = {
+	.value = list_iter_value,
+	.done = list_iter_done,
+	.advance = list_iter_advance
+};
+
+const type_t list_iterator_type = {
+	.destroy = free
+};
+
 iterator_t *list_iterate(object_t *obj) {
 	list_t *list = (list_t *) obj;
 	iterator_t *iter = calloc(1,sizeof(iterator_t));
-	iter->object.num_refs = 1;
 	iter->object.type = &list_iterator_type;
-	iter->value = list_iter_value;
-	iter->done = list_iter_done;
-	iter->advance = list_iter_advance;
+	iter->object.num_refs = 1;
 	iter->iterable = addref(obj);
 	iter->context = list->head->next;
+	iter->ordinal = 0;
 	return iter;
 }
 
 const type_t list_type = {
-	.iterate = list_iterate,
-	.destroy = (destructor_t) list_delete
+	.destroy = (destructor_t) list_delete,
+	.iterator = &list_iter_vtbl
 };
 
 list_t *list_new() {
@@ -53,17 +57,19 @@ list_t *list_new() {
 }
 
 void list_delete(list_t *list) {
-
 	ASSERT(list);
-
 	list_node_t *node = list->head;
 	while (node) {
 		list_node_t *next = node->next;
 		free(node);
 		node = next;
 	}
-
 	free(list);
+}
+
+size_t list_count(list_t *list) {
+	ASSERT(list);
+	return list->count;
 }
 
 list_node_t *list_begin(list_t *list) {

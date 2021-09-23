@@ -1,72 +1,106 @@
 #include "set.h"
 #include "debug.h"
+#include "bst.h"
+#include "object.h"
+#include "iterator.h"
 
 #include <stdlib.h>
+#include <stddef.h>
 
-typedef struct bst_node_t {
-	void *value;
-	struct bst_node_t *left, *right;
-} bst_node_t;
-
-bst_node_t *bst_node_new() {
-	return calloc(1, sizeof(bst_node_t));
+bool set_iterator_done(iterator_t *iter) {
+	(void) iter;
+	return true;
 }
 
-void bst_free(bst_node_t *node) {
-	if (node) {
-		bst_free(node->left);
-		bst_free(node->right);
-		free(node);
+void *set_iterator_value(iterator_t *iter) {
+	(void) iter;
+	return NULL;
+}
+
+void set_iterator_advance(iterator_t *iter) {
+	(void) iter;
+}
+
+const iterator_vtbl_t set_iterator_vtbl = {
+	.done = set_iterator_done,
+	.value = set_iterator_value,
+	.advance = set_iterator_advance,
+};
+
+const type_t set_iterator_type = {
+	.iterator = &set_iterator_vtbl
+};
+
+iterator_t *set_iterate(object_t *obj, void *context) {
+	const iterable_vtbl_t *vtbl = obj->type->iterable;
+	iterator_t *iterator = NULL;
+	if (vtbl) {
+		iterator = calloc(1, sizeof(iterator_t));
+		iterator->iterable = obj;
+		iterator->context = context;
+		iterator->object.num_refs = 1;
+		iterator->object.type = &set_iterator_type;
 	}
+	return iterator;
 }
 
-void bst_traverse(bst_node_t *node, void (*f)(void *value, void *context), void *context) {
-	if (node->value) {
-		bst_traverse(node->left, f, context);
-		f(node->value, context);
-		bst_traverse(node->right, f, context);
-	}
-}
+const iterable_vtbl_t set_iterable_vtbl = {
+	.iterate = set_iterate
+};
 
-typedef struct set_t {
-	bst_node_t *root;
+const type_t set_type = {
+	.iterable = &set_iterable_vtbl
+};
+
+struct set_t {
+	object_t object;
+	bst_node_t *bst;
 	size_t count;
-	int (*compare)(const void *, const void *);
-} set_t;
+	comparator_t compare;
+};
 
-set_t *set_new(int (*compare)(const void *, const void *)) {
+typedef struct {
+	object_t object;
+} set_iter_t;
+
+set_t *set_new(comparator_t compare) {
 	set_t *s = malloc(sizeof(set_t));
-	s->root = bst_node_new();
+	s->object.type = &set_type;
+	s->object.num_refs = 1;
+	s->bst = bst_node_new();
 	s->count = 0;
 	s->compare = compare;
 	return s;
 }
 
-void set_delete(set_t **setp) {
-	ASSERT(setp);
-	bst_free((*setp)->root);
-	free(*setp);
-	*setp = NULL;
+void set_delete(set_t *s) {
+	ASSERT(s);
+	bst_traverse(s->bst, (bst_traverse_fn_t) bst_node_delete, NULL);
+	free(s);
 }
 
-static bst_node_t *set_search(set_t *s, const void *value) {
-	bst_node_t *node = s->root;
-	int cmp;
-	while (node->value && ((cmp = s->compare(value, node->value)) != 0))
-		node = (cmp == -1) ? node->left : node->right;
-	return node;
-}
-
-void set_add(set_t *s, void *value) {
-	bst_node_t *node = set_search(s, value);
-	if (node->value == NULL) { // do not re-add elements
+bool set_add(set_t *s, void *value) {
+	bst_node_t *node = bst_search(s->bst, value, s->compare);
+	bool found = node->left || node->right;
+	if (!found) { // do not re-add elements
 		node->value = value;
 		node->left = bst_node_new();
 		node->right = bst_node_new();
 		s->count++;
 	}
+	return !found;
+}
+
+struct foreach_context_t {
+	bst_traverse_fn_t f;
+	void *f_context;
+};
+
+static void foreach_helper(bst_node_t *node, void *context) {
+	struct foreach_context_t *callback = context;
+	callback->f(node->value, callback->f_context);
 }
 
 void set_foreach(set_t *s, void (*f)(void *value, void *context), void *context) {
-	bst_traverse(s->root, f, context);
+	bst_traverse(s->bst, foreach_helper, &(struct foreach_context_t){ .f = f, .f_context = context });
 }

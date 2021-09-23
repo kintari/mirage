@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "list.h"
 #include "stack.h"
+#include "set.h"
 #include "iterator.h"
 
 #include <stdbool.h>
@@ -82,22 +83,12 @@ void print_item(const lr_item_t *item) {
 }
 
 static list_t *closure(list_t *kernel) {
-	ASSERT(kernel);
-	
+
 	list_t *lr_items = list_new();
 	list_t *result = list_new();
 
-	DbgCheckHeap();
-
-	for (iterator_t *iter = iterate(kernel); !done(iter); advance(iter)) {
-		list_insert(lr_items, list_end(lr_items), value(iter));
-	}
-
-	/*
-	for (list_node_t *node = list_begin(kernel); node != list_end(kernel); node = node->next) {
+	for (list_node_t *node = kernel->head->next; node != kernel->tail; node = node->next)
 		list_insert(lr_items, list_end(lr_items), node->value);
-	}
-	*/
 
 	while (lr_items->count > 0) {
 		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
@@ -147,64 +138,52 @@ parser_t *parser_new() {
 		list_t *kernel = stack_pop(stack);
 		list_t *state = closure(kernel);
 		list_delete(kernel);
-		DbgCheckHeap();
 
 		TRACE("state %d:\n", num_states);
 		print_itemset(state);
 		num_states++;
-		DbgCheckHeap();
 
 		// collect all symbols which immediately follow a dot
-		list_t *symbols = list_new();
+		set_t *symbols = set_new(strcmp);
 		for (list_node_t *node = state->head->next; node != state->tail; node = node->next) {
 			lr_item_t *item = node->value;
 			// only consider items with something after the dot
-			if (item->dot < item->rhs_len) {
-				char *symbol = item->rhs[item->dot+1];
-				if (symbol && !list_contains(symbols, symbol, (int (*)(void *, void *)) strcmp)) {
-					list_append(symbols, strdup(symbol));
-				}
-				DbgCheckHeap();
+			const char *symbol = item->rhs[item->dot+1];
+			if (symbol) {
+				char *symbol_copy = strdup(symbol);
+				if (!set_add(symbols, symbol_copy))
+					free(symbol_copy);
 			}
 		}
 
-		DbgCheckHeap();
 		TRACE("symbols leading to other states:");
-		for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next)
-			TRACE(" %s", node->value);
+		foreach((object_t *) symbols, iter)
+			TRACE(" %s", value(iter));
 		TRACE("\n");
-		DbgCheckHeap();
 
 		// for each symbol in symbols, build the kernel of the state that it leads to
-		for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next) {
-			char *symbol = node->value;
+		foreach((object_t *) symbols, iter) {
+			char *symbol = value(iter);
 			if (symbol) {
-				DbgCheckHeap();
 				list_t *new_kernel = list_new();
-				DbgCheckHeap();
-				for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
-					lr_item_t *item = item_node->value;
+				//for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
+				foreach ((object_t *) state, item_iter) {
+					lr_item_t *item = value(item_iter);
 					if (item->dot < item->rhs_len && strcmp(item->rhs[item->dot+1], symbol) == 0)
 						list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
-					DbgCheckHeap();
 				}
-				stack_push(stack, new_kernel);
-				DbgCheckHeap();
+				list_count(new_kernel) > 0 ? stack_push(stack, new_kernel) : list_delete(new_kernel);
 			}
 		}
 
 		TRACE("\n");
+
+		//for (list_node_t *node = state->head->next; node != state->tail; node = node->next)
+		//	lr_item_delete(node->value);
 		
-		if (0) {
-		for (list_node_t *node = state->head->next; node != state->tail; node = node->next)
-			lr_item_delete(node->value);
-			DbgCheckHeap();
-		}
-		
-		//for (list_node_t *node = symbols->head->next; node != symbols->tail; node = node->next)
-		//	free(node->value);
-		list_delete(symbols);
-		DbgCheckHeap();
+		//foreach((object_t *) symbols, iter)
+		//	free(value(iter));
+		set_delete(symbols);
 	}
 
 	parser_t *parser = calloc(1,sizeof(parser_t));

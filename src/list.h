@@ -24,6 +24,8 @@ list_t *list_new();
 
 void list_delete(list_t *list);
 
+size_t list_count(list_t *list);
+
 list_node_t *list_begin(list_t *list);
 
 list_node_t *list_end(list_t *list);
@@ -34,5 +36,5 @@ void list_append(list_t *list, void *value);
 
 void *list_remove(list_t *list, list_node_t *node);
 
-bool list_contains(list_t *list, void *value, int (*compare)(void *, void *));
+bool list_contains(list_t *list, const void *value, int (*compare)(void *, void *));
 

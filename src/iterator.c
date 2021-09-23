@@ -1,40 +1,32 @@
 #include "iterator.h"
 #include "debug.h"
+#include "object.h"
 
 #include <crtdbg.h>
 
-#undef iterate
-
-iterator_t *iterate_impl(object_t *obj) {
-	DbgCheckHeap();
-	iterator_t *iter = 0;
-	if (obj->type->iterate) {
-		iter = obj->type->iterate(obj);
-	}
-	DbgCheckHeap();
+iterator_t *iterate(object_t *obj, void *context) {
+	addref(obj);
+	const iterable_vtbl_t *vtbl = obj->type->iterable;
+	iterator_t *iter = vtbl ? vtbl->iterate(obj, context) : NULL;
+	unref(obj);
 	return iter;
 }
 
 void *value(iterator_t *iter) {
-	DbgCheckHeap();
-	void *tmp = iter->value(iter);
-	DbgCheckHeap();
-	return tmp;
+	const iterator_vtbl_t *vtbl = iter->object.type->iterator;
+	return vtbl->value(iter);
 }
 
 bool done(iterator_t *iter) {
-	DbgCheckHeap();
-	object_t *iterable = iter->iterable;
-	bool b = iter->done(iter);
-	DbgCheckHeap();
+	const iterator_vtbl_t *vtbl = iter->object.type->iterator;
+	//object_t *iterable = iter->iterable;
+	bool b = vtbl->done(iter);
 	//if (b) unref(iterable);
-	(void) iterable;
-	DbgCheckHeap();
 	return b;
 }
 
 void advance(iterator_t *iter) {
-	DbgCheckHeap();
-	iter->advance(iter);
-	DbgCheckHeap();
+	const iterator_vtbl_t *vtbl = iter->object.type->iterator;
+	vtbl->advance(iter);
+	iter->ordinal++;
 }
