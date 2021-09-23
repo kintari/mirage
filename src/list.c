@@ -19,14 +19,15 @@ void list_iter_advance(iterator_t *iter) {
 	iter->context = node->next;
 }
 
-const iterator_vtbl_t list_iter_vtbl = {
+const iterator_vtbl_t list_iterator_vtbl = {
 	.value = list_iter_value,
 	.done = list_iter_done,
 	.advance = list_iter_advance
 };
 
 const type_t list_iterator_type = {
-	.destroy = free
+	.destroy = free,
+	.iterator = &list_iterator_vtbl
 };
 
 iterator_t *list_iterate(object_t *obj) {
@@ -40,9 +41,13 @@ iterator_t *list_iterate(object_t *obj) {
 	return iter;
 }
 
+const iterable_vtbl_t list_iterable_vtbl = {
+	.iterate = list_iterate
+};
+
 const type_t list_type = {
 	.destroy = (destructor_t) list_delete,
-	.iterator = &list_iter_vtbl
+	.iterable = &list_iterable_vtbl
 };
 
 list_t *list_new() {

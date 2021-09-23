@@ -1,5 +1,7 @@
 #pragma once
 
+#define cast(x,t) ((t) (x))
+
 typedef struct object_t object_t;
 typedef struct type_t type_t;
 

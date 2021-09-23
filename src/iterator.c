@@ -4,10 +4,10 @@
 
 #include <crtdbg.h>
 
-iterator_t *iterate(object_t *obj, void *context) {
+iterator_t *iterate(object_t *obj) {
 	addref(obj);
 	const iterable_vtbl_t *vtbl = obj->type->iterable;
-	iterator_t *iter = vtbl ? vtbl->iterate(obj, context) : NULL;
+	iterator_t *iter = vtbl ? vtbl->iterate(obj) : NULL;
 	unref(obj);
 	return iter;
 }
