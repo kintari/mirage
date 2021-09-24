@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include "object.h"
-
+#include "collection.h"
 
 typedef struct list_node_t list_node_t;
 

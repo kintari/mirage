@@ -3,6 +3,7 @@
 #include "bst.h"
 #include "object.h"
 #include "iterator.h"
+#include "collection.h"
 
 #include <stdlib.h>
 #include <stddef.h>
@@ -13,6 +14,19 @@ struct set_t {
 	bst_node_t **nodes; // stored in insertion order
 	size_t count;
 	comparator_t compare;
+};
+
+bool set_collection_add(object_t *obj, void *value) {
+	return set_add(cast(obj, set_t *), value);
+}
+
+size_t set_collection_count(const object_t *obj) {
+	return cast(obj, const set_t *)->count;
+}
+
+const collection_vtbl_t set_collection_vtbl = {
+	.add = set_collection_add,
+	.count = set_collection_count
 };
 
 bool set_iterator_done(iterator_t *iter) {
@@ -62,6 +76,8 @@ const iterable_vtbl_t set_iterable_vtbl = {
 };
 
 const type_t set_type = {
+	.destroy = (destructor_t) set_delete,
+	.collection = &set_collection_vtbl,
 	.iterable = &set_iterable_vtbl
 };
 
@@ -96,18 +112,4 @@ bool set_add(set_t *s, void *value) {
 		}
 	}
 	return !found;
-}
-
-struct foreach_context_t {
-	bst_traverse_fn_t f;
-	void *f_context;
-};
-
-static void foreach_helper(bst_node_t *node, void *context) {
-	struct foreach_context_t *callback = context;
-	callback->f(node->value, callback->f_context);
-}
-
-void set_foreach(set_t *s, void (*f)(void *value, void *context), void *context) {
-	bst_traverse(s->bst, foreach_helper, &(struct foreach_context_t){ .f = f, .f_context = context });
 }

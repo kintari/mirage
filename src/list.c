@@ -4,6 +4,20 @@
 
 #include <stdlib.h>
 
+bool list_collection_add(object_t *obj, void *value) {
+	list_append(cast(obj, list_t *), value);
+	return true;
+}
+
+size_t list_collection_count(const object_t *obj) {
+	return cast(obj, list_t *)->count;
+}
+
+const collection_vtbl_t list_collection_vtbl = {
+	.add = list_collection_add,
+	.count = list_collection_count
+};
+
 void *list_iter_value(iterator_t *iter) {
 	return ((list_node_t *) iter->context)->value;
 }
@@ -47,6 +61,7 @@ const iterable_vtbl_t list_iterable_vtbl = {
 
 const type_t list_type = {
 	.destroy = (destructor_t) list_delete,
+	.collection = &list_collection_vtbl,
 	.iterable = &list_iterable_vtbl
 };
 

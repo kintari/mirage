@@ -147,6 +147,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\bst.h" />
+    <ClInclude Include="..\src\collection.h" />
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\debug.h" />
     <ClInclude Include="..\src\iterator.h" />

@@ -82,18 +82,17 @@ void print_item(const lr_item_t *item) {
 		TRACE(" %s", item->rhs[i]);
 }
 
-static list_t *closure(list_t *kernel) {
+static object_t *closure(list_t *kernel) {
 
 	list_t *lr_items = list_new();
-	list_t *result = list_new();
+	object_t *result = (object_t *) set_new(lr_item_cmp);
 
-	for (list_node_t *node = kernel->head->next; node != kernel->tail; node = node->next)
-		list_insert(lr_items, list_end(lr_items), node->value);
+	foreach ((object_t *) kernel, iter)
+		list_insert(lr_items, list_end(lr_items), value(iter));
 
 	while (lr_items->count > 0) {
-		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
-		if (!list_contains(result, item, (int (*)(void *, void *)) lr_item_cmp))
-			list_insert(result, list_end(result), item);
+		lr_item_t *item = list_remove(lr_items, lr_items->head->next);		
+		add(result, item);
 		const char *next_symbol = item->rhs[item->dot+1];
 		if (next_symbol) {
 			// find all rules with 'symbol' as their left hand side
@@ -114,13 +113,6 @@ struct parser_t {
 	int state;
 };
 
-void print_itemset(list_t *item_set) {
-	for (list_node_t *node = list_begin(item_set); node != list_end(item_set); node = node->next) {
-		print_item(node->value);
-		TRACE("\n");
-	}
-}
-
 parser_t *parser_new() {
 
 	// create the start item set, containing a single item corresponding to the start rule S -> whatever
@@ -136,38 +128,43 @@ parser_t *parser_new() {
 
 		// get the next item set and compute its closure
 		list_t *kernel = stack_pop(stack);
-		list_t *state = closure(kernel);
+		object_t *state = closure(kernel);
 		list_delete(kernel);
 
 		TRACE("state %d:\n", num_states);
-		print_itemset(state);
+		foreach(state, iter) {
+			print_item(value(iter));
+			TRACE("\n");
+		}
 		num_states++;
 
 		// collect all symbols which immediately follow a dot
-		set_t *symbols = set_new(strcmp);
-		for (list_node_t *node = state->head->next; node != state->tail; node = node->next) {
-			lr_item_t *item = node->value;
+		object_t *symbols = (object_t *) set_new(strcmp);
+		foreach(state, iter) {
+			lr_item_t *item = value(iter);
 			// only consider items with something after the dot
 			const char *symbol = item->rhs[item->dot+1];
 			if (symbol) {
 				char *symbol_copy = strdup(symbol);
-				if (!set_add(symbols, symbol_copy))
+				if (!add(symbols, symbol_copy))
 					free(symbol_copy);
 			}
 		}
 
-		TRACE("symbols leading to other states:");
-		foreach((object_t *) symbols, iter)
-			TRACE(" %s", value(iter));
-		TRACE("\n");
+		if (count(symbols) > 0) { 
+			TRACE("symbols leading to other states:");
+			foreach((object_t *) symbols, iter)
+				TRACE(" %s", value(iter));
+			TRACE("\n");
+		}
 
 		// for each symbol in symbols, build the kernel of the state that it leads to
-		foreach((object_t *) symbols, iter) {
+		foreach(symbols, iter) {
 			char *symbol = value(iter);
 			if (symbol) {
 				list_t *new_kernel = list_new();
 				//for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
-				foreach ((object_t *) state, item_iter) {
+				foreach (state, item_iter) {
 					lr_item_t *item = value(item_iter);
 					if (item->dot < item->rhs_len && strcmp(item->rhs[item->dot+1], symbol) == 0)
 						list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
@@ -183,7 +180,7 @@ parser_t *parser_new() {
 		
 		//foreach((object_t *) symbols, iter)
 		//	free(value(iter));
-		set_delete(symbols);
+		unref(symbols);
 	}
 
 	parser_t *parser = calloc(1,sizeof(parser_t));
