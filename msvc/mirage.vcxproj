@@ -135,6 +135,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\bst.c" />
     <ClCompile Include="..\src\debug.c" />
+    <ClCompile Include="..\src\functional.c" />
     <ClCompile Include="..\src\iterator.c" />
     <ClCompile Include="..\src\list.c" />
     <ClCompile Include="..\src\main.c" />
@@ -150,6 +151,7 @@
     <ClInclude Include="..\src\collection.h" />
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\debug.h" />
+    <ClInclude Include="..\src\functional.h" />
     <ClInclude Include="..\src\iterator.h" />
     <ClInclude Include="..\src\list.h" />
     <ClInclude Include="..\src\object.h" />

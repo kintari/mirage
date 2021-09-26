@@ -48,6 +48,9 @@
     <ClCompile Include="..\src\bst.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\functional.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\config.h">
@@ -87,6 +90,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\collection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\functional.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

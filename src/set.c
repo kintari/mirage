@@ -4,6 +4,7 @@
 #include "object.h"
 #include "iterator.h"
 #include "collection.h"
+#include "functional.h"
 
 #include <stdlib.h>
 #include <stddef.h>
@@ -28,6 +29,20 @@ const collection_vtbl_t set_collection_vtbl = {
 	.add = set_collection_add,
 	.count = set_collection_count
 };
+
+
+/*
+object_t *set_functional_map(object_t *obj, map_fn_t f) {
+	ASSERT(obj);
+	ASSERT(f);
+	set_t *r = set_new(cast(obj, set_t *)->compare);
+}
+
+object_t *set_functional_filter(object_t *obj, predicate_fn_t f) {
+	
+}
+*/
+
 
 bool set_iterator_done(iterator_t *iter) {
 	size_t index = cast(iter->context, size_t);

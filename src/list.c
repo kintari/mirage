@@ -1,6 +1,7 @@
 #include "list.h"
 #include "debug.h"
 #include "iterator.h"
+#include "functional.h"
 
 #include <stdlib.h>
 
@@ -16,6 +17,32 @@ size_t list_collection_count(const object_t *obj) {
 const collection_vtbl_t list_collection_vtbl = {
 	.add = list_collection_add,
 	.count = list_collection_count
+};
+
+object_t *list_functional_map(object_t *obj, map_fn_t f) {
+	ASSERT(obj);
+	ASSERT(f);
+	list_t *src = cast(obj, list_t *);
+	list_t *result = list_new();
+	for (list_node_t *node = src->head->next; node != src->tail; node = node->next)
+		list_append(result, f(node->value));
+	return (object_t *) result;
+}
+
+object_t *list_functional_filter(object_t *obj, predicate_fn_t f) {
+	ASSERT(obj);
+	ASSERT(f);
+	list_t *src = cast(obj, list_t *);
+	list_t *result = list_new();
+	for (list_node_t *node = src->head->next; node != src->tail; node = node->next)
+		if (f(node->value))
+			list_append(result, node->value);
+	return (object_t *) result;
+}
+
+const functional_vtbl_t list_functional_vtbl = {
+	.map = list_functional_map,
+	.filter = list_functional_filter
 };
 
 void *list_iter_value(iterator_t *iter) {
@@ -62,6 +89,7 @@ const iterable_vtbl_t list_iterable_vtbl = {
 const type_t list_type = {
 	.destroy = (destructor_t) list_delete,
 	.collection = &list_collection_vtbl,
+	.functional = &list_functional_vtbl,
 	.iterable = &list_iterable_vtbl
 };
 

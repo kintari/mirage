@@ -5,6 +5,7 @@
 #include "stack.h"
 #include "set.h"
 #include "iterator.h"
+#include "functional.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -82,6 +83,10 @@ void print_item(const lr_item_t *item) {
 		TRACE(" %s", item->rhs[i]);
 }
 
+object_t *foo(object_t *bar) {
+	return bar;
+}
+
 static object_t *closure(list_t *kernel) {
 
 	list_t *lr_items = list_new();
@@ -89,6 +94,9 @@ static object_t *closure(list_t *kernel) {
 
 	foreach ((object_t *) kernel, iter)
 		list_insert(lr_items, list_end(lr_items), value(iter));
+
+	object_t *blarg = map((object_t *) lr_items, foo);
+	(void) blarg;
 
 	while (lr_items->count > 0) {
 		lr_item_t *item = list_remove(lr_items, lr_items->head->next);		
