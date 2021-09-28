@@ -6,6 +6,7 @@
 #include "set.h"
 #include "iterator.h"
 #include "functional.h"
+#include "comparable.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -27,6 +28,7 @@ static rule_t grammar[] = {
 };
 
 typedef struct lr_item_t {
+	object_t object;
 	const rule_t *rule;
 	char *lhs;
 	char **rhs;
@@ -34,8 +36,21 @@ typedef struct lr_item_t {
 	int dot;
 } lr_item_t;
 
+
+static int lr_item_cmp(const lr_item_t *, const lr_item_t *);
+
+const comparable_vtbl_t lr_item_comparable_vtbl = {
+	.compare = (int (*)(const object_t *, const object_t *)) lr_item_cmp
+};
+
+const type_t lr_item_type = {
+	.comparable = &lr_item_comparable_vtbl
+};
+
 static lr_item_t *lr_item_new(const rule_t *rule, int dot) {
 	lr_item_t *item = malloc(sizeof(lr_item_t));
+	item->object.num_refs = 1;
+	item->object.type = &lr_item_type;
 	item->rule = rule;
 	item->lhs = strdup(rule->lhs);
 	item->rhs_len = 0;
@@ -83,23 +98,17 @@ void print_item(const lr_item_t *item) {
 		TRACE(" %s", item->rhs[i]);
 }
 
-object_t *foo(object_t *bar) {
-	return bar;
-}
-
 static object_t *closure(list_t *kernel) {
 
 	list_t *lr_items = list_new();
-	object_t *result = (object_t *) set_new(lr_item_cmp);
+	object_t *result = (object_t *) set_new();
 
 	foreach ((object_t *) kernel, iter)
 		list_insert(lr_items, list_end(lr_items), value(iter));
 
-	object_t *blarg = map((object_t *) lr_items, foo);
-	(void) blarg;
-
 	while (lr_items->count > 0) {
-		lr_item_t *item = list_remove(lr_items, lr_items->head->next);		
+		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
+		addref(item);
 		add(result, item);
 		const char *next_symbol = item->rhs[item->dot+1];
 		if (next_symbol) {
@@ -131,54 +140,54 @@ parser_t *parser_new() {
 	stack_t *stack = stack_new();
 	stack_push(stack, start_state);
 
-	size_t num_states = 0;
+	object_t *states = (object_t *) list_new();
+
 	while (stack_depth(stack) > 0) {
 
 		// get the next item set and compute its closure
 		list_t *kernel = stack_pop(stack);
 		object_t *state = closure(kernel);
+		add(states, state);
+
 		list_delete(kernel);
 
-		TRACE("state %d:\n", num_states);
+		TRACE("state %d:\n", count(states));
 		foreach(state, iter) {
 			print_item(value(iter));
 			TRACE("\n");
 		}
-		num_states++;
 
 		// collect all symbols which immediately follow a dot
-		object_t *symbols = (object_t *) set_new(strcmp);
+		object_t *symbols = (object_t *) set_new();
 		foreach(state, iter) {
 			lr_item_t *item = value(iter);
 			// only consider items with something after the dot
-			const char *symbol = item->rhs[item->dot+1];
-			if (symbol) {
-				char *symbol_copy = strdup(symbol);
-				if (!add(symbols, symbol_copy))
-					free(symbol_copy);
-			}
+			char *buf = item->rhs[item->dot+1];
+			text_t *symbol = text_new_from_cstr(buf);
+			if (symbol) add(symbols, symbol);
 		}
 
 		if (count(symbols) > 0) { 
 			TRACE("symbols leading to other states:");
-			foreach((object_t *) symbols, iter)
-				TRACE(" %s", value(iter));
+			foreach(symbols, iter) {
+				text_t *text = value(iter);
+				TRACE(" %s", text_buf(text));
+			}
 			TRACE("\n");
 		}
 
 		// for each symbol in symbols, build the kernel of the state that it leads to
 		foreach(symbols, iter) {
-			char *symbol = value(iter);
-			if (symbol) {
-				list_t *new_kernel = list_new();
-				//for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
-				foreach (state, item_iter) {
-					lr_item_t *item = value(item_iter);
-					if (item->dot < item->rhs_len && strcmp(item->rhs[item->dot+1], symbol) == 0)
-						list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
-				}
-				list_count(new_kernel) > 0 ? stack_push(stack, new_kernel) : list_delete(new_kernel);
+			text_t *symbol = value(iter);
+			list_t *new_kernel = list_new();
+			//for (list_node_t *item_node = state->head->next; item_node != state->tail; item_node = item_node->next) {
+			foreach (state, item_iter) {
+				lr_item_t *item = value(item_iter);
+				const char *after = item->rhs[item->dot+1];
+				if (after && strcmp(after, text_buf(symbol)) == 0)
+					list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
 			}
+			list_count(new_kernel) > 0 ? stack_push(stack, new_kernel) : list_delete(new_kernel);
 		}
 
 		TRACE("\n");

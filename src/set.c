@@ -4,6 +4,7 @@
 #include "object.h"
 #include "iterator.h"
 #include "collection.h"
+#include "comparable.h"
 #include "functional.h"
 
 #include <stdlib.h>
@@ -14,8 +15,33 @@ struct set_t {
 	bst_node_t *bst;
 	bst_node_t **nodes; // stored in insertion order
 	size_t count;
-	comparator_t compare;
 };
+
+static int compare(const object_t *x, const object_t *y) {
+	ASSERT(x);
+	ASSERT(x);
+	ASSERT(x->type == y->type);
+	const type_t *type = x->type;
+	ASSERT(type->comparable);
+	if (type->comparable->compare) {
+		return type->comparable->compare(x, y);
+	}
+	else if (type->comparable->gt && type->comparable->lt && type->comparable->eq) {
+		if (type->comparable->gt(x, y)) {
+			return 1;
+		}
+		if (type->comparable->lt(x, y)) {
+			return -1;
+		}
+		else {
+			return type->comparable->eq(x, y);
+		}
+	}
+	else {
+		ASSERT("cannot compare objects" && false);
+		abort();
+	}
+}
 
 bool set_collection_add(object_t *obj, void *value) {
 	return set_add(cast(obj, set_t *), value);
@@ -29,20 +55,6 @@ const collection_vtbl_t set_collection_vtbl = {
 	.add = set_collection_add,
 	.count = set_collection_count
 };
-
-
-/*
-object_t *set_functional_map(object_t *obj, map_fn_t f) {
-	ASSERT(obj);
-	ASSERT(f);
-	set_t *r = set_new(cast(obj, set_t *)->compare);
-}
-
-object_t *set_functional_filter(object_t *obj, predicate_fn_t f) {
-	
-}
-*/
-
 
 bool set_iterator_done(iterator_t *iter) {
 	size_t index = cast(iter->context, size_t);
@@ -96,12 +108,11 @@ const type_t set_type = {
 	.iterable = &set_iterable_vtbl
 };
 
-set_t *set_new(comparator_t compare) {
+set_t *set_new() {
 	set_t *s = calloc(1, sizeof(set_t));
 	s->object.type = &set_type;
 	s->object.num_refs = 1;
 	s->bst = bst_node_new();
-	s->compare = compare;
 	return s;
 }
 
@@ -113,7 +124,7 @@ void set_delete(set_t *s) {
 }
 
 bool set_add(set_t *s, void *value) {
-	bst_node_t *node = bst_search(s->bst, value, s->compare);
+	bst_node_t *node = bst_search(s->bst, value, compare);
 	bool found = node->left || node->right;
 	if (!found) { // do not re-add elements		
 		bst_node_t **nodes = realloc(s->nodes, (s->count + 1) * sizeof(bst_node_t *));

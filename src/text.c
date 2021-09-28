@@ -1,31 +1,50 @@
 #include "text.h"
 #include "debug.h"
+#include "object.h"
+#include "comparable.h"
 
 #include <malloc.h>
 #include <string.h>
 
 struct text_t {
+	object_t object;
 	char *buf;
 	size_t len; // length of the string, in characters, not including null terminator
 };
 
-text_t *text_new() {
+static int compare(const object_t *x, const object_t *y) {
+	return strcmp(cast(x, const text_t *)->buf, cast(y, const text_t *)->buf);
+}
+
+const comparable_vtbl_t text_comparable_vtbl = {
+	.compare = compare
+};
+
+const type_t text_type = {
+	.comparable = &text_comparable_vtbl
+};
+
+static text_t *text_alloc(size_t len) {
 	text_t *text = malloc(sizeof(text_t));
-	text->buf = malloc(1);
-	text->buf[0] = 0;
-	text->len = 0;
+	text->object.num_refs = 1;
+	text->object.type = &text_type;
+	size_t buflen = len + 1;
+	text->buf = malloc(buflen);
+	memset(text->buf, 0, buflen);
+	text->len = len;
 	return text;
+}
+
+text_t *text_new() {
+	return text_alloc(0);
 }
 
 text_t *text_new_from_cstr(const char *cstr) {
 	text_t *text = NULL;
 	if (cstr) {
-		text = malloc(sizeof(text_t));
 		size_t len = strlen(cstr);
-		text->buf = malloc(len + 1);
+		text = text_alloc(len);
 		memcpy(text->buf, cstr, len);
-		text->buf[len] = 0;
-		text->len = len;
 	}
 	return text;
 }
@@ -33,14 +52,9 @@ text_t *text_new_from_cstr(const char *cstr) {
 text_t *text_copy(const text_t *text) {
 	text_t *copy = NULL;
 	if (text) {
-		// make a copy of text->buf
-		char *buf = malloc(text->len + 1);
-		memcpy(buf, text->buf, text->len);
-		buf[text->len] = 0;
 		// construct new text object
-		copy = malloc(sizeof(text_t));
-		copy->buf = buf;
-		copy->len = text->len;
+		copy = text_alloc(text->len);
+		memcpy(copy->buf, text->buf, text->len);
 	}
 	return copy;
 }
@@ -64,44 +78,20 @@ const char *text_buf(const text_t *text) {
 text_t *text_append(const text_t *text, int ch) {
 	ASSERT(text);
 	ASSERT(ch <= 256); // FIXME
-	char *buf = malloc(text->len + 2);
-	ASSERT(buf);
-	if (buf) {
-		for (int i = 0; i < text->len; i++)
-			buf[i] = text->buf[i];
-		buf[text->len] = (char) ch;
-		buf[text->len + 1] = 0;
-		text_t *ret = malloc(sizeof(text_t));
-		ASSERT(ret);
-		if (ret) {
-			ret->buf = buf;
-			ret->len = text->len + 1;
-			return ret;
-		}
-	}
-	return NULL;
+	text_t *ret = text_alloc(text->len + 1);
+	memcpy(ret->buf, text->buf, text->len);
+	ret->buf[text->len] = (char) ch;
+	return ret;
 }
 
 text_t *text_concat_cstr(const text_t *text, const char *pstr, size_t pstr_len) {
-	size_t len = text->len + pstr_len;
-	char *buf = malloc(len + 1);
-	ASSERT(buf);
-	if (buf) {
-		char *pch = buf;
-		for (size_t i = 0; i < text->len; i++)
-			*(pch++) = text->buf[i];
-		for (size_t j = 0; j < pstr_len; j++)
-			*(pch++) = pstr[j];
-		*pch = 0;
-		text_t *ret = malloc(sizeof(text_t));
-		if (ret) {
-			ret->buf = buf;
-			ret->len = len;
-			return ret;
-		}
-		free(buf);
-	}
-	return NULL;
+	text_t *ret = text_alloc(text->len + pstr_len);
+	char *pch = ret->buf;
+	for (size_t i = 0; i < text->len; i++)
+		*(pch++) = text->buf[i];
+	for (size_t j = 0; j < pstr_len; j++)
+		*(pch++) = pstr[j];
+	return ret;
 }
 
 text_t *text_concat(const text_t *t0, const text_t *t1) {

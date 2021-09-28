@@ -10,6 +10,7 @@ typedef void (*destructor_t)(object_t *);
 struct type_t {
 	destructor_t destroy;
 	const struct collection_vtbl_t *collection;
+	const struct comparable_vtbl_t *comparable;
 	const struct functional_vtbl_t *functional;
 	const struct iterable_vtbl_t *iterable;
 	const struct iterator_vtbl_t *iterator;
