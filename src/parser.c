@@ -107,8 +107,8 @@ static object_t *closure(list_t *kernel) {
 		list_insert(lr_items, list_end(lr_items), value(iter));
 
 	while (lr_items->count > 0) {
-		lr_item_t *item = list_remove(lr_items, lr_items->head->next);
-		addref(item);
+		lr_item_t *item = (lr_item_t *) addref(lr_items->head->next->value);
+		list_remove(lr_items, lr_items->head->next);
 		add(result, item);
 		const char *next_symbol = item->rhs[item->dot+1];
 		if (next_symbol) {
@@ -117,7 +117,7 @@ static object_t *closure(list_t *kernel) {
 				if (strcmp(rule->lhs, next_symbol) == 0) {
 					// add a new lr item to the queue
 					lr_item_t *new_item = lr_item_new(rule, 0);
-					list_insert(lr_items, list_end(lr_items), new_item);
+					list_insert(lr_items, list_end(lr_items), (object_t *) new_item);
 				}
 			}
 		}
@@ -134,7 +134,7 @@ parser_t *parser_new() {
 
 	// create the start item set, containing a single item corresponding to the start rule S -> whatever
 	list_t *start_state = list_new();
-	list_insert(start_state, list_end(start_state), lr_item_new(&grammar[0], 0));
+	list_insert(start_state, list_end(start_state), (object_t *) lr_item_new(&grammar[0], 0));
 
 	// this stack stores item sets to be processed
 	stack_t *stack = stack_new();
@@ -185,7 +185,7 @@ parser_t *parser_new() {
 				lr_item_t *item = value(item_iter);
 				const char *after = item->rhs[item->dot+1];
 				if (after && strcmp(after, text_buf(symbol)) == 0)
-					list_append(new_kernel, lr_item_new(item->rule, item->dot + 1));
+					list_append(new_kernel, (object_t *) lr_item_new(item->rule, item->dot + 1));
 			}
 			list_count(new_kernel) > 0 ? stack_push(stack, new_kernel) : list_delete(new_kernel);
 		}

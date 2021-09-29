@@ -128,12 +128,12 @@ list_node_t *list_end(list_t *list) {
 	return list->tail;
 }
 
-void list_insert(list_t *list, list_node_t *pos, void *value) {
+void list_insert(list_t *list, list_node_t *pos, object_t *value) {
 	// new node is inserted before 'pos'
 	ASSERT(pos);
 	ASSERT(pos->prev);
 	list_node_t *node = calloc(1, sizeof(list_node_t));
-	node->value = value;
+	node->value = addref(value);
 	node->prev = pos->prev;
 	node->next = pos;
 	node->prev->next = node;
@@ -141,21 +141,21 @@ void list_insert(list_t *list, list_node_t *pos, void *value) {
 	list->count++;
 }
 
-void list_append(list_t *list, void *value) {
+void list_append(list_t *list, object_t *value) {
 	list_insert(list, list_end(list), value);
 }
 
-void *list_remove(list_t *list, list_node_t *node) {
+void list_remove(list_t *list, list_node_t *node) {
 	ASSERT(list);
 	ASSERT(node);
 	ASSERT(node->prev);
 	ASSERT(node->next);
 	node->prev->next = node->next;
 	node->next->prev = node->prev;
-	void *result = node->value;
+	object_t *value = node->value;
 	free(node);
+	unref(value);
 	list->count--;
-	return result;
 }
 
 static int trivial_compare(void *x, void *y) {

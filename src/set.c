@@ -43,7 +43,7 @@ static int compare(const object_t *x, const object_t *y) {
 	}
 }
 
-bool set_collection_add(object_t *obj, void *value) {
+bool set_collection_add(object_t *obj, object_t *value) {
 	return set_add(cast(obj, set_t *), value);
 }
 
@@ -86,14 +86,14 @@ const type_t set_iterator_type = {
 };
 
 iterator_t *set_iterate(object_t *obj) {
-	const iterable_vtbl_t *vtbl = obj->type->iterable;
+	ASSERT(obj);
 	iterator_t *iterator = NULL;
+	const iterable_vtbl_t *vtbl = obj->type->iterable;
 	if (vtbl) {
 		iterator = calloc(1, sizeof(iterator_t));
-		iterator->iterable = obj;
 		iterator->object.num_refs = 1;
 		iterator->object.type = &set_iterator_type;
-		iterator->context = cast(0, void *);
+		iterator->iterable = obj;
 	}
 	return iterator;
 }
@@ -102,35 +102,30 @@ const iterable_vtbl_t set_iterable_vtbl = {
 	.iterate = set_iterate
 };
 
-const type_t set_type = {
-	.destroy = (destructor_t) set_delete,
-	.collection = &set_collection_vtbl,
-	.iterable = &set_iterable_vtbl
-};
-
 set_t *set_new() {
-	set_t *s = calloc(1, sizeof(set_t));
-	s->object.type = &set_type;
-	s->object.num_refs = 1;
+	set_t *s = (set_t *) create(&set_type);
 	s->bst = bst_node_new();
 	return s;
 }
 
-void set_delete(set_t *s) {
+void set_destroy(set_t *s) {
 	ASSERT(s);
-	bst_traverse(s->bst, (bst_traverse_fn_t) bst_node_delete, NULL);
+	for (size_t i = 0; i < s->count; i++) {
+		bst_node_t *node = s->nodes[i];
+		unref(node->value);
+		bst_node_delete(node);
+	}
 	free(s->nodes);
-	free(s);
 }
 
-bool set_add(set_t *s, void *value) {
+bool set_add(set_t *s, object_t *value) {
 	bst_node_t *node = bst_search(s->bst, value, compare);
 	bool found = node->left || node->right;
-	if (!found) { // do not re-add elements		
+	if (!found) { // do not re-add elements
 		bst_node_t **nodes = realloc(s->nodes, (s->count + 1) * sizeof(bst_node_t *));
 		ASSERT(nodes);
 		if (nodes) {
-			node->value = value;
+			node->value = addref(value);
 			node->left = bst_node_new();
 			node->right = bst_node_new();
 			s->nodes = nodes;
@@ -139,3 +134,11 @@ bool set_add(set_t *s, void *value) {
 	}
 	return !found;
 }
+
+const type_t set_type = {
+	.name = "set",
+	.size = sizeof(set_t),
+	.destroy = (destructor_t) set_destroy,
+	.collection = &set_collection_vtbl,
+	.iterable = &set_iterable_vtbl
+};

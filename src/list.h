@@ -10,7 +10,7 @@
 typedef struct list_node_t list_node_t;
 
 struct list_node_t {
-	void *value;
+	object_t *value;
 	struct list_node_t *prev, *next;
 };
 
@@ -30,11 +30,10 @@ list_node_t *list_begin(list_t *list);
 
 list_node_t *list_end(list_t *list);
 
-void list_insert(list_t *list, list_node_t *pos, void *value);
+void list_insert(list_t *list, list_node_t *pos, object_t *value);
 
-void list_append(list_t *list, void *value);
+void list_append(list_t *list, object_t *value);
 
-void *list_remove(list_t *list, list_node_t *node);
+void list_remove(list_t *list, list_node_t *node);
 
 bool list_contains(list_t *list, const void *value, int (*compare)(void *, void *));
-

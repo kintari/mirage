@@ -139,6 +139,7 @@
     <ClCompile Include="..\src\iterator.c" />
     <ClCompile Include="..\src\list.c" />
     <ClCompile Include="..\src\main.c" />
+    <ClCompile Include="..\src\object.c" />
     <ClCompile Include="..\src\parser.c" />
     <ClCompile Include="..\src\scanner.c" />
     <ClCompile Include="..\src\set.c" />
@@ -147,6 +148,7 @@
     <ClCompile Include="..\src\token.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\allocator.h" />
     <ClInclude Include="..\src\bst.h" />
     <ClInclude Include="..\src\collection.h" />
     <ClInclude Include="..\src\comparable.h" />
@@ -162,6 +164,7 @@
     <ClInclude Include="..\src\stack.h" />
     <ClInclude Include="..\src\text.h" />
     <ClInclude Include="..\src\token.h" />
+    <ClInclude Include="..\src\type.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\test\fib.txt" />
