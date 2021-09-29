@@ -22,7 +22,7 @@ typedef struct list_t {
 
 list_t *list_new();
 
-void list_delete(list_t *list);
+void list_destroy(list_t *list);
 
 size_t list_count(list_t *list);
 
@@ -37,3 +37,5 @@ void list_append(list_t *list, object_t *value);
 void list_remove(list_t *list, list_node_t *node);
 
 bool list_contains(list_t *list, const void *value, int (*compare)(void *, void *));
+
+extern const type_t list_type;

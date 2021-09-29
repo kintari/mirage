@@ -6,7 +6,7 @@ struct object_t;
 
 typedef void (*destructor_t)(struct object_t *);
 
-struct type_t {
+typedef struct type_t {
 	const char *name;
 	size_t size;
 	destructor_t destroy;
@@ -16,4 +16,4 @@ struct type_t {
 	const struct functional_vtbl_t *functional;
 	const struct iterable_vtbl_t *iterable;
 	const struct iterator_vtbl_t *iterator;
-};
+} type_t;

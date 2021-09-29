@@ -54,6 +54,9 @@
     <ClCompile Include="..\src\object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\comparable.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\config.h">

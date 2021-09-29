@@ -2,6 +2,7 @@
 #include "debug.h"
 #include "iterator.h"
 #include "functional.h"
+#include "comparable.h"
 
 #include <stdlib.h>
 
@@ -87,16 +88,15 @@ const iterable_vtbl_t list_iterable_vtbl = {
 };
 
 const type_t list_type = {
-	.destroy = (destructor_t) list_delete,
+	.size = sizeof(list_t),
+	.destroy = (destructor_t) list_destroy,
 	.collection = &list_collection_vtbl,
 	.functional = &list_functional_vtbl,
 	.iterable = &list_iterable_vtbl
 };
 
 list_t *list_new() {
-	list_t *list = calloc(1, sizeof(list_t));
-	list->object.type = &list_type;
-	list->object.num_refs = 1;
+	list_t *list = (list_t *) allocate(&list_type);
 	list->head = calloc(1, sizeof(list_node_t));
 	list->tail = calloc(1, sizeof(list_node_t));
 	list->head->next = list->tail;
@@ -104,15 +104,15 @@ list_t *list_new() {
 	return list;
 }
 
-void list_delete(list_t *list) {
+void list_destroy(list_t *list) {
 	ASSERT(list);
 	list_node_t *node = list->head;
 	while (node) {
 		list_node_t *next = node->next;
+		unref(node->value);
 		free(node);
 		node = next;
 	}
-	free(list);
 }
 
 size_t list_count(list_t *list) {
@@ -158,15 +158,10 @@ void list_remove(list_t *list, list_node_t *node) {
 	list->count--;
 }
 
-static int trivial_compare(void *x, void *y) {
-	if (x > y) return  1;
-	if (x < y) return -1;
-	return 0;
-}
-
-bool list_contains(list_t *list, void *value, int (*compare)(void *, void *)) {
+bool list_contains(list_t *list, object_t *value, int (*compare_fn)(object_t *, object_t *)) {
 	list_node_t *node = list->head->next;
-	if (compare == NULL) compare = trivial_compare;
+	if (compare_fn == NULL)
+		compare_fn = compare;
 	while (node != list->tail) {
 		if (compare(value, node->value) == 0)
 			return true;

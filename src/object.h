@@ -14,7 +14,7 @@ struct object_t {
 	int num_refs;
 };
 
-object_t *create(const type_t *);
+object_t *allocate(const type_t *);
 
 object_t *addref(object_t *obj);
 

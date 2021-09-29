@@ -12,12 +12,12 @@ struct text_t {
 	size_t len; // length of the string, in characters, not including null terminator
 };
 
-static int compare(const object_t *x, const object_t *y) {
+static int text_compare(const object_t *x, const object_t *y) {
 	return strcmp(cast(x, const text_t *)->buf, cast(y, const text_t *)->buf);
 }
 
 const comparable_vtbl_t text_comparable_vtbl = {
-	.compare = compare
+	.compare = text_compare
 };
 
 const type_t text_type = {

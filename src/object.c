@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 
-object_t *create(const type_t *type) {
+object_t *allocate(const type_t *type) {
 	ASSERT(type);
 	object_t *obj = 0;
 	if (type) {

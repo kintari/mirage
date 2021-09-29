@@ -17,32 +17,6 @@ struct set_t {
 	size_t count;
 };
 
-static int compare(const object_t *x, const object_t *y) {
-	ASSERT(x);
-	ASSERT(x);
-	ASSERT(x->type == y->type);
-	const type_t *type = x->type;
-	ASSERT(type->comparable);
-	if (type->comparable->compare) {
-		return type->comparable->compare(x, y);
-	}
-	else if (type->comparable->gt && type->comparable->lt && type->comparable->eq) {
-		if (type->comparable->gt(x, y)) {
-			return 1;
-		}
-		if (type->comparable->lt(x, y)) {
-			return -1;
-		}
-		else {
-			return type->comparable->eq(x, y);
-		}
-	}
-	else {
-		ASSERT("cannot compare objects" && false);
-		abort();
-	}
-}
-
 bool set_collection_add(object_t *obj, object_t *value) {
 	return set_add(cast(obj, set_t *), value);
 }
@@ -103,7 +77,7 @@ const iterable_vtbl_t set_iterable_vtbl = {
 };
 
 set_t *set_new() {
-	set_t *s = (set_t *) create(&set_type);
+	set_t *s = (set_t *) allocate(&set_type);
 	s->bst = bst_node_new();
 	return s;
 }

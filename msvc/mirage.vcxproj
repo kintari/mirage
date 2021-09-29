@@ -134,6 +134,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\src\bst.c" />
+    <ClCompile Include="..\src\comparable.c" />
     <ClCompile Include="..\src\debug.c" />
     <ClCompile Include="..\src\functional.c" />
     <ClCompile Include="..\src\iterator.c" />
