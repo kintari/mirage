@@ -36,7 +36,7 @@ bool set_iterator_done(iterator_t *iter) {
 	return index >= s->count;
 }
 
-void *set_iterator_value(iterator_t *iter) {
+object_t *set_iterator_value(iterator_t *iter) {
 	size_t index = cast(iter->context, size_t);
 	set_t *s = cast(iter->iterable, set_t *);
 	ASSERT(index < s->count);

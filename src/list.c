@@ -46,7 +46,7 @@ const functional_vtbl_t list_functional_vtbl = {
 	.filter = list_functional_filter
 };
 
-void *list_iter_value(iterator_t *iter) {
+object_t *list_iter_value(iterator_t *iter) {
 	return ((list_node_t *) iter->context)->value;
 }
 

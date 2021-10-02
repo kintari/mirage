@@ -12,7 +12,7 @@ iterator_t *iterate(object_t *obj) {
 	return iter;
 }
 
-void *value(iterator_t *iter) {
+object_t *value(iterator_t *iter) {
 	const iterator_vtbl_t *vtbl = iter->object.type->iterator;
 	return vtbl->value(iter);
 }

@@ -21,12 +21,12 @@ typedef struct iterable_vtbl_t {
 typedef struct iterator_vtbl_t {
 	bool (*done)(iterator_t *);
 	void (*advance)(iterator_t *);
-	void *(*value)(iterator_t *);
+	object_t *(*value)(iterator_t *);
 } iterator_vtbl_t;
 
 iterator_t *iterate(object_t *);
 
-void *value(iterator_t *iter);
+object_t *value(iterator_t *iter);
 
 bool done(iterator_t *iter);
 

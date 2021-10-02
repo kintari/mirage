@@ -154,14 +154,14 @@ parser_t *parser_new() {
 
 		TRACE("state %d:\n", count(states));
 		foreach(state, iter) {
-			print_item(value(iter));
+			print_item(cast(value(iter), lr_item_t *));
 			TRACE("\n");
 		}
 
 		// collect all symbols which immediately follow a dot
 		object_t *symbols = (object_t *) set_new(&set_type);
 		foreach(state, iter) {
-			lr_item_t *item = value(iter);
+			lr_item_t *item = (lr_item_t *) value(iter);
 			// only consider items with something after the dot
 			char *buf = item->rhs[item->dot+1];
 			text_t *symbol = text_new_from_cstr(buf);
@@ -171,7 +171,7 @@ parser_t *parser_new() {
 		if (count(symbols) > 0) { 
 			TRACE("symbols leading to other states:");
 			foreach(symbols, iter) {
-				text_t *text = value(iter);
+				text_t *text = (text_t *) value(iter);
 				TRACE(" %s", text_buf(text));
 			}
 			TRACE("\n");
@@ -179,10 +179,10 @@ parser_t *parser_new() {
 
 		// for each symbol in symbols, build the kernel of the state that it leads to
 		foreach(symbols, iter) {
-			text_t *symbol = value(iter);
+			text_t *symbol = (text_t *) value(iter);
 			object_t *new_kernel = (object_t *) list_new();
 			foreach (state, item_iter) {
-				lr_item_t *item = value(item_iter);
+				lr_item_t *item = (lr_item_t *) value(item_iter);
 				const char *after = item->rhs[item->dot+1];
 				if (after && strcmp(after, text_buf(symbol)) == 0)
 					add(new_kernel, (object_t *) lr_item_new(item->rule, item->dot + 1));
